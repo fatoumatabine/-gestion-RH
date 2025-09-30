@@ -1,0 +1,205 @@
+import { Router } from 'express';
+import { prisma } from '../database/prisma.client.js';
+import { auth } from '../middleware/auth.js';
+import bcrypt from 'bcryptjs';
+
+const router = Router();
+
+/**
+ * @route GET /api/users
+ * @desc Récupérer tous les utilisateurs
+ * @access Private
+ */
+router.get('/', auth, async (req, res) => {
+  try {
+    const users = await prisma.user.findMany({
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        phone: true,
+        lastLogin: true,
+        createdAt: true,
+        employee: true
+      }
+    });
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ message: 'Erreur lors de la récupération des utilisateurs' });
+  }
+});
+
+/**
+ * @route GET /api/users/:id
+ * @desc Récupérer un utilisateur par son ID
+ * @access Private
+ */
+router.get('/:id', auth, async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: parseInt(req.params.id) },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        phone: true,
+        lastLogin: true,
+        createdAt: true,
+        employee: true
+      }
+    });
+
+    if (!user) {
+      return res.status(404).json({ message: 'Utilisateur non trouvé' });
+    }
+
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ message: 'Erreur lors de la récupération de l\'utilisateur' });
+  }
+});
+
+/**
+ * @route POST /api/users
+ * @desc Créer un nouvel utilisateur
+ * @access Private
+ */
+router.post('/', auth, async (req, res) => {
+  try {
+    const { email, password, firstName, lastName, role, phone } = req.body;
+
+    // Vérifier si l'email existe déjà
+    const existingUser = await prisma.user.findUnique({
+      where: { email }
+    });
+
+    if (existingUser) {
+      return res.status(400).json({ message: 'Cet email est déjà utilisé' });
+    }
+
+    // Hasher le mot de passe
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    const user = await prisma.user.create({
+      data: {
+        email,
+        passwordHash,
+        firstName,
+        lastName,
+        role,
+        phone
+      },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        phone: true,
+        createdAt: true
+      }
+    });
+
+    res.status(201).json(user);
+  } catch (error) {
+    console.error('Erreur création utilisateur:', error);
+    res.status(500).json({ message: 'Erreur lors de la création de l\'utilisateur' });
+  }
+});
+
+/**
+ * @route PUT /api/users/:id
+ * @desc Mettre à jour un utilisateur
+ * @access Private
+ */
+router.put('/:id', auth, async (req, res) => {
+  try {
+    const { firstName, lastName, phone, role } = req.body;
+
+    const user = await prisma.user.update({
+      where: { id: parseInt(req.params.id) },
+      data: {
+        firstName,
+        lastName,
+        phone,
+        role
+      },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        phone: true,
+        lastLogin: true,
+        createdAt: true,
+        employee: true
+      }
+    });
+
+    res.json(user);
+  } catch (error) {
+    console.error('Erreur mise à jour utilisateur:', error);
+    res.status(500).json({ message: 'Erreur lors de la mise à jour de l\'utilisateur' });
+  }
+});
+
+/**
+ * @route PUT /api/users/:id/password
+ * @desc Changer le mot de passe d'un utilisateur
+ * @access Private
+ */
+router.put('/:id/password', auth, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    // Vérifier l'ancien mot de passe
+    const user = await prisma.user.findUnique({
+      where: { id: parseInt(req.params.id) }
+    });
+
+    if (!user) {
+      return res.status(404).json({ message: 'Utilisateur non trouvé' });
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Mot de passe actuel incorrect' });
+    }
+
+    // Mettre à jour le mot de passe
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    await prisma.user.update({
+      where: { id: parseInt(req.params.id) },
+      data: { passwordHash }
+    });
+
+    res.json({ message: 'Mot de passe mis à jour avec succès' });
+  } catch (error) {
+    console.error('Erreur changement mot de passe:', error);
+    res.status(500).json({ message: 'Erreur lors du changement de mot de passe' });
+  }
+});
+
+/**
+ * @route DELETE /api/users/:id
+ * @desc Supprimer un utilisateur
+ * @access Private
+ */
+router.delete('/:id', auth, async (req, res) => {
+  try {
+    await prisma.user.delete({
+      where: { id: parseInt(req.params.id) }
+    });
+
+    res.json({ message: 'Utilisateur supprimé avec succès' });
+  } catch (error) {
+    res.status(500).json({ message: 'Erreur lors de la suppression de l\'utilisateur' });
+  }
+});
+
+export default router;
