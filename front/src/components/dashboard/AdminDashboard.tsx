@@ -1,15 +1,34 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
 import { FaBuilding, FaUsers, FaFileAlt, FaArrowUp, FaArrowDown, FaDollarSign, FaBolt, FaBullseye } from 'react-icons/fa';
+import { dashboardService } from '../../services/dashboard';
 
 const AdminDashboard = () => {
   const [timeRange, setTimeRange] = useState('30days');
+  const [dashboardData, setDashboardData] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  const kpiData = [
+  useEffect(() => {
+    const loadDashboardData = async () => {
+      try {
+        setLoading(true);
+        const data = await dashboardService.getAdminStats();
+        setDashboardData(data);
+      } catch (error) {
+        console.error('Erreur lors du chargement des statistiques:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadDashboardData();
+  }, []);
+
+  const kpiData = dashboardData ? [
     {
       title: 'Total Entreprises',
-      value: '25',
-      change: '+12%',
+      value: dashboardData.totalCompanies.toString(),
+      change: `+${dashboardData.companyGrowth}%`,
       trend: 'up',
       icon: FaBuilding,
       color: 'blue',
@@ -17,8 +36,8 @@ const AdminDashboard = () => {
     },
     {
       title: 'Total Employés',
-      value: '1 291',
-      change: '+5.2%',
+      value: dashboardData.totalEmployees.toString(),
+      change: `+${dashboardData.employeeGrowth}%`,
       trend: 'up',
       icon: FaUsers,
       color: 'green',
@@ -26,7 +45,7 @@ const AdminDashboard = () => {
     },
     {
       title: 'Revenus Totaux',
-      value: '67 000 FCFA',
+      value: `${dashboardData.monthlyRevenue.toLocaleString('fr-FR')} FCFA`,
       change: '+15.3%',
       trend: 'up',
       icon: FaDollarSign,
@@ -35,7 +54,7 @@ const AdminDashboard = () => {
     },
     {
       title: 'Taux d\'Activité',
-      value: '89.2%',
+      value: `${dashboardData.activityRate}%`,
       change: '+3.1%',
       trend: 'up',
       icon: FaBolt,
@@ -44,23 +63,23 @@ const AdminDashboard = () => {
     },
     {
       title: 'Paiements',
-      value: '575',
-      change: '+8.4%',
+      value: dashboardData.totalPayments.toString(),
+      change: `+${dashboardData.paymentGrowth}%`,
       trend: 'up',
       icon: FaFileAlt,
       color: 'cyan',
       subtitle: 'transactions'
     },
     {
-      title: 'Taux de Rétention',
-      value: '94.5%',
+      title: 'Employés Actifs',
+      value: dashboardData.activeEmployees.toString(),
       change: '+2.1%',
       trend: 'up',
       icon: FaBullseye,
       color: 'pink',
-      subtitle: 'clients fidèles'
+      subtitle: 'en activité'
     }
-  ];
+  ] : [];
 
   const monthlyTrend = [
     { month: 'Jan', entreprises: 15, employes: 890, revenus: 45000, paiements: 450 },
@@ -113,6 +132,17 @@ const AdminDashboard = () => {
     pink: { bg: 'bg-pink-50', text: 'text-pink-600', border: 'border-pink-200' }
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Chargement du dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -146,7 +176,7 @@ const AdminDashboard = () => {
         {/* KPI Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
           {kpiData.map((kpi, index) => {
-            const colors = colorMap[kpi.color];
+            const colors = colorMap[kpi.color as keyof typeof colorMap];
             return (
               <div key={index} className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-lg transition-shadow">
                 <div className="flex items-start justify-between">

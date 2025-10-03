@@ -28,4 +28,9 @@ router.get('/system-status', async (req, res) => {
   await dashboardController.getSystemStatus(req, res);
 });
 
+// GET /api/dashboard/admin-stats - Récupérer les statistiques administrateur
+router.get('/admin-stats', async (req, res) => {
+  await dashboardController.getAdminStats(req, res);
+});
+
 export default router;

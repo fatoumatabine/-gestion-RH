@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
+import path from 'path';
 import authRoutes from './auth/auth.routes.js';
 import userRoutes from './routes/users.js';
 import companyRoutes from './routes/companies.js';
@@ -10,6 +11,8 @@ import payrollRoutes from './routes/payrolls.js';
 import employeeRoutes from './routes/employees.js';
 import notificationRoutes from './routes/notifications.js';
 import dashboardRoutes from './routes/dashboard.js';
+import attendanceRoutes from './routes/attendance.routes.js';
+import companyDataRoutes from './routes/company.routes.js';
 
 const app = express();
 
@@ -17,6 +20,9 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+
+// Servir les fichiers statiques des uploads
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 app.use(cors({
   origin: function (origin, callback) {
     // Permettre les requêtes sans origine (comme les outils de développement mobile)
@@ -65,6 +71,12 @@ app.use('/api/notifications', notificationRoutes);
 
 // Routes du dashboard
 app.use('/api/dashboard', dashboardRoutes);
+
+// Routes des pointages
+app.use('/api/attendance', attendanceRoutes);
+
+// Routes des données d'entreprise (factures, bulletins, documents, etc.)
+app.use('/api/company', companyDataRoutes);
 
 // Route de test
 app.get('/api/test', (req, res) => {

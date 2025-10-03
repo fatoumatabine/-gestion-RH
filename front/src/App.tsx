@@ -2,6 +2,7 @@ import { Navigate, createBrowserRouter, RouterProvider } from "react-router-dom"
 import SignIn from "./pages/AuthPages/SignIn";
 import SignUp from "./pages/AuthPages/SignUp";
 import NotFound from "./pages/OtherPage/NotFound";
+import Landing from "./pages/Landing";
 import UserProfiles from "./pages/UserProfiles";
 import Videos from "./pages/UiElements/Videos";
 import Images from "./pages/UiElements/Images";
@@ -19,10 +20,23 @@ import RoleBasedDashboard from "./components/dashboard/RoleBasedDashboard";
 import CashierDashboard from "./components/dashboard/CashierDashboard";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import { AuthProvider } from "./context/AuthContext";
+import { CompanyProvider } from "./context/CompanyContext";
+import { ToastProvider } from "./context/ToastContext";
 
 // HR Pages
 import EmployeeList from "./pages/Employees/EmployeeList";
 import AddEmployee from "./pages/Employees/AddEmployee";
+import EmployeeEdit from "./pages/Employees/EmployeeEdit";
+
+// Attendance Pages
+import QRScanner from "./pages/Attendance/QRScanner";
+import AttendanceDetail from "./pages/Attendance/AttendanceDetail";
+
+// Company Data Pages
+import CompanyFactures from "./pages/Company/CompanyFactures";
+import CompanyBulletins from "./pages/Company/CompanyBulletins";
+import CompanySalaryHistory from "./pages/Company/CompanySalaryHistory";
+import CompanyDocuments from "./pages/Company/CompanyDocuments";
 import CompanyList from "./pages/Companies/CompanyList";
 import AddCompany from "./pages/Companies/AddCompany";
 import CompanyDetail from "./pages/Companies/CompanyDetail";
@@ -30,11 +44,14 @@ import CompanyEdit from "./pages/Companies/CompanyEdit";
 import CompanyDashboard from "./pages/Companies/CompanyDashboard";
 import PayrollList from "./pages/Payrolls/PayrollList";
 import GeneratePayroll from "./pages/Payrolls/GeneratePayroll";
+import PayRunDetail from "./pages/Payrolls/PayRunDetail";
 import LeaveRequests from "./pages/Leaves/LeaveRequests";
 import SalaryHistory from "./pages/SalaryHistory";
 import CalendarPage from "./pages/CalendarPage";
 import InvoiceList from "./pages/Invoices/InvoiceList";
 import UserManagement from "./pages/Admin/UserManagement";
+import PaymentsList from "./pages/Payments/PaymentsList";
+import PayRunsList from "./pages/Payrolls/PayRunsList";
 
 // Reports & Analytics
 import HRReports from "./pages/Reports/HRReports";
@@ -47,11 +64,18 @@ import PayrollSettings from "./pages/Settings/PayrollSettings";
 import TemplateSettings from "./pages/Settings/TemplateSettings";
 import Preferences from "./pages/Settings/Preferences";
 
+// Attendance
+import AttendanceDashboard from "./pages/Attendance/AttendanceDashboard";
+
 // Profile
 import ChangePassword from "./pages/Profile/ChangePassword";
 
 const router = createBrowserRouter(
   [
+    {
+      path: "/",
+      element: <Landing />
+    },
     {
       path: "/auth/sign-in",
       element: <SignIn />
@@ -68,7 +92,23 @@ const router = createBrowserRouter(
       element: <AppLayout />,
       children: [
         {
+          path: "/dashboard",
+          element: (
+            <ProtectedRoute allowedRoles={["CASHIER", "ADMIN", "SUPERADMIN"]}>
+              <RoleBasedDashboard />
+            </ProtectedRoute>
+          )
+        },
+        {
           path: "/payments",
+          element: (
+            <ProtectedRoute allowedRoles={["CASHIER", "SUPERADMIN"]}>
+              <PaymentsList />
+            </ProtectedRoute>
+          )
+        },
+        {
+          path: "/payments/dashboard",
           element: (
             <ProtectedRoute allowedRoles={["CASHIER", "ADMIN", "SUPERADMIN"]}>
               <CashierDashboard />
@@ -76,10 +116,34 @@ const router = createBrowserRouter(
           )
         },
         {
-          path: "/",
+          path: "/attendance",
           element: (
-            <ProtectedRoute allowedRoles={["CASHIER", "ADMIN", "SUPERADMIN"]}>
-              <RoleBasedDashboard />
+            <ProtectedRoute allowedRoles={["ADMIN", "CASHIER", "SUPERADMIN"]}>
+              <AttendanceDashboard />
+            </ProtectedRoute>
+          )
+        },
+        {
+          path: "/attendance/scan",
+          element: (
+            <ProtectedRoute allowedRoles={["ADMIN", "CASHIER", "SUPERADMIN"]}>
+              <QRScanner />
+            </ProtectedRoute>
+          )
+        },
+        {
+          path: "/attendance/:id",
+          element: (
+            <ProtectedRoute allowedRoles={["ADMIN", "CASHIER", "SUPERADMIN"]}>
+              <AttendanceDetail />
+            </ProtectedRoute>
+          )
+        },
+        {
+          path: "/payruns",
+          element: (
+            <ProtectedRoute allowedRoles={["CASHIER", "SUPERADMIN"]}>
+              <PayRunsList />
             </ProtectedRoute>
           )
         },
@@ -140,9 +204,51 @@ const router = createBrowserRouter(
           )
         },
         {
-          path: "/payrolls",
+          path: "/employees/:id/edit",
           element: (
             <ProtectedRoute allowedRoles={["ADMIN", "SUPERADMIN"]}>
+              <EmployeeEdit />
+            </ProtectedRoute>
+          )
+        },
+
+        // Company Data Routes
+        {
+          path: "/company/factures",
+          element: (
+            <ProtectedRoute allowedRoles={["ADMIN", "SUPERADMIN"]}>
+              <CompanyFactures />
+            </ProtectedRoute>
+          )
+        },
+        {
+          path: "/company/bulletins",
+          element: (
+            <ProtectedRoute allowedRoles={["ADMIN", "SUPERADMIN"]}>
+              <CompanyBulletins />
+            </ProtectedRoute>
+          )
+        },
+        {
+          path: "/company/salary-history",
+          element: (
+            <ProtectedRoute allowedRoles={["ADMIN", "SUPERADMIN"]}>
+              <CompanySalaryHistory />
+            </ProtectedRoute>
+          )
+        },
+        {
+          path: "/company/documents",
+          element: (
+            <ProtectedRoute allowedRoles={["ADMIN", "SUPERADMIN"]}>
+              <CompanyDocuments />
+            </ProtectedRoute>
+          )
+        },
+        {
+          path: "/payrolls",
+          element: (
+            <ProtectedRoute allowedRoles={["CASHIER", "SUPERADMIN"]}>
               <PayrollList />
             </ProtectedRoute>
           )
@@ -150,8 +256,16 @@ const router = createBrowserRouter(
         {
           path: "/payrolls/new",
           element: (
-            <ProtectedRoute allowedRoles={["ADMIN", "SUPERADMIN"]}>
+            <ProtectedRoute allowedRoles={["CASHIER", "SUPERADMIN"]}>
               <GeneratePayroll />
+            </ProtectedRoute>
+          )
+        },
+        {
+          path: "/payrolls/:id",
+          element: (
+            <ProtectedRoute allowedRoles={["CASHIER", "SUPERADMIN"]}>
+              <PayRunDetail />
             </ProtectedRoute>
           )
         },
@@ -367,7 +481,11 @@ const router = createBrowserRouter(
 function App() {
   return (
     <AuthProvider>
-      <RouterProvider router={router} />
+      <CompanyProvider>
+        <ToastProvider>
+          <RouterProvider router={router} />
+        </ToastProvider>
+      </CompanyProvider>
     </AuthProvider>
   );
 }

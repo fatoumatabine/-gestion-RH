@@ -3,16 +3,11 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useNavigate } from "react-router-dom";
 import PageMeta from "../../components/common/PageMeta";
-import { useAuth } from "../../context/AuthContext";
-import { employeesService } from "../../services/employees";
+import { employeesService, CreateEmployeeData } from "../../services/employees";
 import { employeeSchema, EmployeeFormData } from "../../lib/validationSchemas";
 import Label from "../../components/form/Label";
-import Input from "../../components/form/input/InputField";
-import Select from "../../components/form/Select";
-import Button from "../../components/ui/button/Button";
 
 export default function AddEmployee() {
-  const { user } = useAuth();
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -21,11 +16,17 @@ export default function AddEmployee() {
     register,
     handleSubmit,
     formState: { errors },
-    setValue,
   } = useForm<EmployeeFormData>({
     resolver: zodResolver(employeeSchema),
     defaultValues: {
-      entrepriseId: user?.id || 1, // Assuming entrepriseId is user's company, default to 1
+      userId: undefined,
+      entrepriseId: undefined,
+      department: "",
+      position: "",
+      salary: undefined,
+      hireDate: "",
+      phone: "",
+      address: "",
     },
   });
 
@@ -49,7 +50,37 @@ export default function AddEmployee() {
     setIsSubmitting(true);
     setError(null);
     try {
-      await employeesService.createEmployee(data);
+      // Build transformed data, only including optional fields if they have values
+      const transformedData: CreateEmployeeData = {
+        userId: Number(data.userId),
+        entrepriseId: Number(data.entrepriseId),
+      };
+
+      if (data.hireDate) {
+        transformedData.hireDate = new Date(data.hireDate).toISOString();
+      }
+
+      if (data.salary !== undefined) {
+        transformedData.salary = Number(data.salary);
+      }
+
+      if (data.phone) {
+        transformedData.phone = data.phone;
+      }
+
+      if (data.address) {
+        transformedData.address = data.address;
+      }
+
+      if (data.department) {
+        transformedData.department = data.department;
+      }
+
+      if (data.position) {
+        transformedData.position = data.position;
+      }
+
+      await employeesService.createEmployee(transformedData);
       navigate("/employees");
     } catch (err) {
       console.error("Error creating employee:", err);
@@ -76,12 +107,12 @@ export default function AddEmployee() {
               Créer un nouveau profil employé
             </p>
           </div>
-          <Button
+          <button
             onClick={() => navigate("/employees")}
-            variant="outline"
+            className="rounded-lg border border-gray-300 px-4 py-2 text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
           >
             Retour à la liste
-          </Button>
+          </button>
         </div>
 
         <div className="rounded-2xl border border-gray-200 bg-white p-8 dark:border-gray-800 dark:bg-gray-900">
@@ -95,11 +126,12 @@ export default function AddEmployee() {
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
               <div>
                 <Label htmlFor="userId">ID Utilisateur *</Label>
-                <Input
+                <input
                   type="number"
                   id="userId"
                   {...register("userId", { valueAsNumber: true })}
                   placeholder="Entrez l'ID utilisateur"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
                 />
                 {errors.userId && (
                   <p className="mt-1 text-sm text-red-600">{errors.userId.message}</p>
@@ -108,51 +140,52 @@ export default function AddEmployee() {
 
               <div>
                 <Label htmlFor="entrepriseId">ID Entreprise *</Label>
-                <Input
+                <input
                   type="number"
                   id="entrepriseId"
                   {...register("entrepriseId", { valueAsNumber: true })}
                   placeholder="Entrez l'ID entreprise"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
                 />
                 {errors.entrepriseId && (
                   <p className="mt-1 text-sm text-red-600">{errors.entrepriseId.message}</p>
                 )}
               </div>
 
-              <div>
-                <Label htmlFor="employeeId">ID Employé *</Label>
-                <Input
-                  type="text"
-                  id="employeeId"
-                  {...register("employeeId")}
-                  placeholder="Entrez l'ID employé"
-                />
-                {errors.employeeId && (
-                  <p className="mt-1 text-sm text-red-600">{errors.employeeId.message}</p>
-                )}
-              </div>
 
               <div>
-                <Label>Département</Label>
-                <Select
-                  options={departmentOptions}
-                  placeholder="Sélectionnez un département"
-                  onChange={(value) => setValue("department", value)}
-                  className="dark:bg-dark-900"
-                />
+                <Label htmlFor="department">Département</Label>
+                <select
+                  id="department"
+                  {...register("department")}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                >
+                  <option value="">Sélectionnez un département</option>
+                  {departmentOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
                 {errors.department && (
                   <p className="mt-1 text-sm text-red-600">{errors.department.message}</p>
                 )}
               </div>
 
               <div>
-                <Label>Poste</Label>
-                <Select
-                  options={positionOptions}
-                  placeholder="Sélectionnez un poste"
-                  onChange={(value) => setValue("position", value)}
-                  className="dark:bg-dark-900"
-                />
+                <Label htmlFor="position">Poste</Label>
+                <select
+                  id="position"
+                  {...register("position")}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                >
+                  <option value="">Sélectionnez un poste</option>
+                  {positionOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
                 {errors.position && (
                   <p className="mt-1 text-sm text-red-600">{errors.position.message}</p>
                 )}
@@ -160,11 +193,12 @@ export default function AddEmployee() {
 
               <div>
                 <Label htmlFor="salary">Salaire</Label>
-                <Input
+                <input
                   type="number"
                   id="salary"
                   {...register("salary", { valueAsNumber: true })}
                   placeholder="Entrez le salaire"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
                 />
                 {errors.salary && (
                   <p className="mt-1 text-sm text-red-600">{errors.salary.message}</p>
@@ -173,10 +207,11 @@ export default function AddEmployee() {
 
               <div>
                 <Label htmlFor="hireDate">Date d'embauche</Label>
-                <Input
+                <input
                   type="date"
                   id="hireDate"
                   {...register("hireDate")}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
                 />
                 {errors.hireDate && (
                   <p className="mt-1 text-sm text-red-600">{errors.hireDate.message}</p>
@@ -185,11 +220,12 @@ export default function AddEmployee() {
 
               <div>
                 <Label htmlFor="phone">Téléphone</Label>
-                <Input
+                <input
                   type="tel"
                   id="phone"
                   {...register("phone")}
                   placeholder="Entrez le numéro de téléphone"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
                 />
                 {errors.phone && (
                   <p className="mt-1 text-sm text-red-600">{errors.phone.message}</p>
@@ -198,11 +234,12 @@ export default function AddEmployee() {
 
               <div className="md:col-span-2">
                 <Label htmlFor="address">Adresse</Label>
-                <Input
+                <input
                   type="text"
                   id="address"
                   {...register("address")}
                   placeholder="Entrez l'adresse"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
                 />
                 {errors.address && (
                   <p className="mt-1 text-sm text-red-600">{errors.address.message}</p>
@@ -211,16 +248,20 @@ export default function AddEmployee() {
             </div>
 
             <div className="flex justify-end space-x-4">
-              <Button
+              <button
                 type="button"
-                variant="outline"
                 onClick={() => navigate("/employees")}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
               >
                 Annuler
-              </Button>
-              <Button type="submit" disabled={isSubmitting}>
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+              >
                 {isSubmitting ? "Création..." : "Créer l'employé"}
-              </Button>
+              </button>
             </div>
           </form>
         </div>

@@ -73,6 +73,21 @@ class DashboardService {
   async getSystemStatus(): Promise<SystemStatus> {
     return this.request<SystemStatus>('/api/dashboard/system-status');
   }
+
+  async getAdminStats(): Promise<{
+    totalCompanies: number;
+    totalEmployees: number;
+    totalPayrolls: number;
+    totalPayments: number;
+    activeEmployees: number;
+    monthlyRevenue: number;
+    companyGrowth: number;
+    employeeGrowth: number;
+    paymentGrowth: number;
+    activityRate: number;
+  }> {
+    return this.request('/api/dashboard/admin-stats');
+  }
 }
 
 export const dashboardService = new DashboardService();

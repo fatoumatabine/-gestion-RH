@@ -28,10 +28,9 @@ export interface Employee {
 export interface CreateEmployeeData {
   userId: number;
   entrepriseId: number;
-  employeeId: string;
   department?: string;
   position?: string;
-  salary?: string;
+  salary?: number;
   hireDate?: string;
   phone?: string;
   address?: string;
@@ -71,6 +70,11 @@ class EmployeesService {
           throw new Error('Session expirée. Veuillez vous reconnecter.');
         }
         const errorData = await response.json().catch(() => ({}));
+        // If there are detailed validation errors, include them
+        if (errorData.errors && Array.isArray(errorData.errors)) {
+          const errorMessages = errorData.errors.map((err: any) => `${err.field}: ${err.message}`).join(', ');
+          throw new Error(`${errorData.message || 'Erreur de validation'}: ${errorMessages}`);
+        }
         throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
       }
 

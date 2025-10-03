@@ -14,6 +14,14 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   const { isAuthenticated, user, isLoading } = useAuth();
   const location = useLocation();
 
+  // Check if token exists in localStorage
+  const token = localStorage.getItem('auth_token');
+
+  // Redirect to login immediately if no token
+  if (!token) {
+    return <Navigate to="/auth/sign-in" state={{ from: location }} replace />;
+  }
+
   // Show loading spinner while checking authentication
   if (isLoading) {
     return (

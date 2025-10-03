@@ -42,6 +42,10 @@ model User {
   createdModeles CompanyModeleDocument[] @relation("ModeleCreatedBy")
   modifiedSalaries CompanyHistoriqueSalaire[] @relation("SalaryModifiedBy")
 
+  // Attendance relations
+  validatedPointages Pointage[] @relation("PointageValidateur")
+  approvedAbsences Absence[] @relation("AbsenceApprobateur")
+
   @@map("users")
 }
 
@@ -60,6 +64,7 @@ model Employee {
   phone        String?
   address      String?        @db.Text
   status       EmployeeStatus @default(ACTIVE)
+  qrCode       String?        @db.VarChar(5000) @map("qr_code") // Code QR unique pour pointage
   createdAt    DateTime       @default(now()) @map("created_at")
   updatedAt    DateTime       @updatedAt @map("updated_at")
 
@@ -74,6 +79,10 @@ model Employee {
   documents    CompanyDocument[]
   salaryHistory CompanyHistoriqueSalaire[]
 
+  // Attendance relations
+  pointages    Pointage[]
+  absences     Absence[]
+
   @@index([entrepriseId])
   @@index([status])
   @@map("employees")
@@ -87,6 +96,9 @@ model Entreprise {
   email         String?
   siteWeb       String?  @map("site_web")
   logo          String?
+  couleurPrimaire String? @map("couleur_primaire") // Couleur principale du thème
+  couleurSecondaire String? @map("couleur_secondaire") // Couleur secondaire
+  couleurDashboard String? @map("couleur_dashboard") // Couleur du dashboard
   description   String?  @db.Text
   devise        String   @default("XOF") @map("devise")
   timezone      String   @default("Africa/Dakar")
@@ -106,6 +118,9 @@ model Entreprise {
   modeles      CompanyModeleDocument[]
   periodesPaie CompanyPeriodePaie[]
   configurationsPaie CompanyConfigurationPaie[]
+
+  // Attendance relations
+  reglePointage ReglePointage?
 
   @@map("entreprises")
 }
@@ -530,4 +545,123 @@ enum CompanyMethodePaiement {
   VIREMENT
   MOBILE_MONEY
   AUTRE
+}
+
+// Attendance Models
+
+model Pointage {
+  id            Int             @id @default(autoincrement())
+  employeId     Int             @map("employe_id")
+  date          DateTime        @db.Date
+  heureArrivee  DateTime?       @map("heure_arrivee")
+  heureDepart   DateTime?       @map("heure_depart")
+  statut        StatutPointage  @default(PRESENT)
+  typePointage  TypePointage    @default(NORMAL) @map("type_pointage")
+  commentaire   String?         @db.Text
+  latitude      Decimal?        @db.Decimal(10, 8)
+  longitude     Decimal?        @db.Decimal(11, 8)
+  ipAddress     String?         @map("ip_address")
+  deviceInfo    String?         @map("device_info")
+  validePar     Int?            @map("valide_par")
+  dateValidation DateTime?      @map("date_validation")
+  creeLe        DateTime        @default(now()) @map("cree_le")
+  modifieLe     DateTime        @updatedAt @map("modifie_le")
+
+  // Relations
+  employe       Employee        @relation(fields: [employeId], references: [id])
+  validateur    User?           @relation("PointageValidateur", fields: [validePar], references: [id])
+
+  @@index([employeId, date])
+  @@index([date, statut])
+  @@map("pointages")
+}
+
+model ReglePointage {
+  id                Int      @id @default(autoincrement())
+  entrepriseId      Int      @map("entreprise_id") @unique
+  heureDebut        String   @default("08:00") @map("heure_debut") // Format HH:MM
+  heureFin          String   @default("17:00") @map("heure_fin")
+  toleranceRetard   Int      @default(15) @map("tolerance_retard") // Minutes
+  toleranceDepart   Int      @default(15) @map("tolerance_depart") // Minutes
+  joursTravail      Json     @map("jours_travail") // ["LUNDI", "MARDI", ...]
+  heuresParJour     Int      @default(8) @map("heures_par_jour")
+  heuresSupAutorise Boolean  @default(true) @map("heures_sup_autorise")
+  seuilHeuresSup    Int      @default(48) @map("seuil_heures_sup") // Semaine
+  pauseDejeuner     Int      @default(60) @map("pause_dejeuner") // Minutes
+  estFlexible       Boolean  @default(false) @map("est_flexible")
+  plageHoraireMin   String?  @map("plage_horaire_min")
+  plageHoraireMax   String?  @map("plage_horaire_max")
+  joursFeries       Json?    @map("jours_feries")
+  modifieLe         DateTime @updatedAt @map("modifie_le")
+
+  // Relations
+  entreprise        Entreprise @relation(fields: [entrepriseId], references: [id])
+
+  @@map("regles_pointage")
+}
+
+model Absence {
+  id              Int           @id @default(autoincrement())
+  employeId       Int           @map("employe_id")
+  typeAbsence     TypeAbsence   @map("type_absence")
+  dateDebut       DateTime      @map("date_debut")
+  dateFin         DateTime      @map("date_fin")
+  motif           String?       @db.Text
+  statut          StatutAbsence @default(EN_ATTENTE)
+  joursOuvres     Int           @map("jours_ouvres") // Nombre de jours ouvrés
+  heuresAbsence   Decimal       @map("heures_absence") @db.Decimal(5, 2)
+  commentaire     String?       @db.Text
+  pieceJointe     String?       @map("piece_jointe")
+  approuvePar     Int?          @map("approuve_par")
+  dateApprobation DateTime?     @map("date_approbation")
+  creeLe          DateTime      @default(now()) @map("cree_le")
+  modifieLe       DateTime      @updatedAt @map("modifie_le")
+
+  // Relations
+  employe         Employee      @relation(fields: [employeId], references: [id])
+  approbateur     User?         @relation("AbsenceApprobateur", fields: [approuvePar], references: [id])
+
+  @@index([employeId, statut])
+  @@index([dateDebut, dateFin])
+  @@map("absences")
+}
+
+// Enums pour les pointages
+
+enum StatutPointage {
+  PRESENT
+  RETARD
+  DEPART_ANTICIPE
+  ABSENT
+  CONGE
+  MALADIE
+  AUTRE
+}
+
+enum TypePointage {
+  NORMAL
+  RETARD_JUSTIFIE
+  DEPART_ANTICIPE_JUSTIFIE
+  HEURES_SUPPLEMENTAIRES
+  TRAVAIL_NUIT
+  FERIE
+}
+
+enum TypeAbsence {
+  CONGE_ANNUEL
+  CONGE_MALADIE
+  CONGE_MATERNITE
+  CONGE_PATERNITE
+  CONGE_EXCEPTIONNEL
+  ABSENCE_NON_JUSTIFIEE
+  ACCIDENT_TRAVAIL
+  FORMATION
+  AUTRE
+}
+
+enum StatutAbsence {
+  EN_ATTENTE
+  APPROUVEE
+  REJETEE
+  ANNULEE
 }

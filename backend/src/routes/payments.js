@@ -85,6 +85,11 @@ router.get('/company/:companyId', async (req, res) => {
 // GET /api/payments - Récupérer tous les paiements
 router.get('/', async (req, res) => {
   try {
+    // Vérifier que l'utilisateur est authentifié
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ message: 'Utilisateur non authentifié' });
+    }
+
     const { page = 1, limit = 10, status, employeeId, startDate, endDate } = req.query;
 
     const pageNum = parseInt(page);
@@ -356,6 +361,11 @@ router.delete('/:id', async (req, res) => {
 // GET /api/payments/stats - Statistiques des paiements
 router.get('/stats/overview', async (req, res) => {
   try {
+    // Vérifier que l'utilisateur est authentifié
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ message: 'Authentification requise' });
+    }
+
     const { startDate, endDate } = req.query;
 
     const dateFilter = {};

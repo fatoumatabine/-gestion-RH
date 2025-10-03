@@ -59,6 +59,14 @@ class PaymentsService {
       const response = await fetch(url, config);
 
       if (!response.ok) {
+        if (response.status === 401) {
+          // Token invalide ou expiré, déconnecter l'utilisateur
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('user');
+          window.location.href = '/auth/sign-in';
+          throw new Error('Session expirée. Veuillez vous reconnecter.');
+        }
+
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
       }

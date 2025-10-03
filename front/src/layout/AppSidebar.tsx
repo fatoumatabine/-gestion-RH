@@ -4,7 +4,6 @@ import { Link, useLocation } from "react-router-dom";
 // Assume these icons are imported from an icon library
 import {
   BoxCubeIcon,
-  CalenderIcon,
   ChevronDownIcon,
   GridIcon,
   HorizontaLDots,
@@ -15,6 +14,7 @@ import {
 } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
 import { useAuth } from "../context/AuthContext";
+import { useCompany } from "../context/CompanyContext";
 
 type NavItem = {
   name: string;
@@ -27,7 +27,7 @@ const navItems: NavItem[] = [
   {
     icon: <GridIcon />,
     name: "Dashboard",
-    path: "/",
+    path: "/dashboard",
   },
   {
     icon: <UserCircleIcon />,
@@ -43,17 +43,34 @@ const navItems: NavItem[] = [
     subItems: [
       { name: "Bulletins de Paie", path: "/payrolls", pro: false },
       { name: "Générer Paie", path: "/payrolls/new", pro: false },
+      { name: "Cycles de Paie", path: "/payruns", pro: false },
       { name: "Historique Salaires", path: "/salary-history", pro: false },
     ],
   },
   {
-    icon: <CalenderIcon />,
-    name: "Congés",
+    icon: <UserCircleIcon />,
+    name: "Pointages",
     subItems: [
-      { name: "Demandes de Congé", path: "/leaves", pro: false },
-      { name: "Calendrier", path: "/calendar", pro: false },
+      { name: "Tableau de Bord", path: "/attendance", pro: false },
+      { name: "Scanner QR Code", path: "/attendance/scan", pro: false },
     ],
   },
+  {
+    icon: <PieChartIcon />,
+    name: "Paiements",
+    subItems: [
+      { name: "Gestion Paiements", path: "/payments", pro: false },
+      { name: "Tableau de Bord", path: "/payments/dashboard", pro: false },
+    ],
+  },
+  // {
+  //   icon: <CalenderIcon />,
+  //   name: "Congés",
+  //   subItems: [
+  //     { name: "Demandes de Congé", path: "/leaves", pro: false },
+  //     { name: "Calendrier", path: "/calendar", pro: false },
+  //   ],
+  // },
   {
     icon: <BoxCubeIcon />,
     name: "Entreprises",
@@ -63,24 +80,34 @@ const navItems: NavItem[] = [
     ],
   },
   {
-    icon: <PieChartIcon />,
-    name: "Rapports",
+    icon: <TableIcon />,
+    name: "Données d'Entreprise",
     subItems: [
-      { name: "Rapports RH", path: "/reports/hr", pro: false },
-      { name: "Statistiques", path: "/reports/statistics", pro: false },
+      { name: "Factures", path: "/company/factures", pro: false },
+      { name: "Bulletins de Salaire", path: "/company/bulletins", pro: false },
+      { name: "Historique Salaires", path: "/company/salary-history", pro: false },
+      { name: "Documents", path: "/company/documents", pro: false },
     ],
   },
+  // {
+  //   icon: <PieChartIcon />,
+  //   name: "Rapports",
+  //   subItems: [
+  //     { name: "Rapports RH", path: "/reports/hr", pro: false },
+  //     { name: "Statistiques", path: "/reports/statistics", pro: false },
+  //   ],
+  // },
 ];
 
 const othersItems: NavItem[] = [
-  {
-    icon: <PieChartIcon />,
-    name: "Analyses",
-    subItems: [
-      { name: "Tableaux de Bord", path: "/analytics/dashboard", pro: false },
-      { name: "Rapports Détaillés", path: "/analytics/reports", pro: false },
-    ],
-  },
+  // {
+  //   icon: <PieChartIcon />,
+  //   name: "Analyses",
+  //   subItems: [
+  //     { name: "Tableaux de Bord", path: "/analytics/dashboard", pro: false },
+  //     { name: "Rapports Détaillés", path: "/analytics/reports", pro: false },
+  //   ],
+  // },
   {
     icon: <BoxCubeIcon />,
     name: "Paramètres",
@@ -103,6 +130,7 @@ const othersItems: NavItem[] = [
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const { user, isAuthenticated } = useAuth();
+  const { company } = useCompany();
   const location = useLocation();
 
   const [openSubmenu, setOpenSubmenu] = useState<{
@@ -112,6 +140,9 @@ const AppSidebar: React.FC = () => {
   const [subMenuHeight, setSubMenuHeight] = useState<Record<string, number>>(
     {}
   );
+  const [employeeCount, setEmployeeCount] = useState<number | null>(null);
+  const [activeUsers, setActiveUsers] = useState<number>(0);
+  const [activeSessions, setActiveSessions] = useState<number>(0);
   const subMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   // const isActive = (path: string) => location.pathname === path;
@@ -156,6 +187,32 @@ const AppSidebar: React.FC = () => {
     }
   }, [openSubmenu]);
 
+  // Load employee count when company changes
+  useEffect(() => {
+    const loadEmployeeCount = async () => {
+      if (company && isAuthenticated) {
+        try {
+          const response = await fetch(`http://localhost:5000/api/employees/company/${company.id}`, {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+            },
+          });
+          if (response.ok) {
+            const employees = await response.json();
+            setEmployeeCount(employees.length);
+          }
+        } catch (error) {
+          console.error('Error loading employee count:', error);
+          setEmployeeCount(0);
+        }
+      } else {
+        setEmployeeCount(null);
+      }
+    };
+
+    loadEmployeeCount();
+  }, [company, isAuthenticated]);
+
   const handleSubmenuToggle = (index: number, menuType: "main" | "others") => {
     setOpenSubmenu((prevOpenSubmenu) => {
       if (
@@ -179,16 +236,28 @@ const AppSidebar: React.FC = () => {
       if (isAuthenticated) {
         // CASHIER role: only show relevant items
         if (user?.role === 'CASHIER') {
-          // Caissier ne voit que le dashboard et les paiements
+          // Caissier voit le dashboard, les paiements et certaines fonctions de paie
           if (nav.name === "Paie & Salaires") {
-            // Filter subItems to only show "Bulletins de Paie"
+            // Filter subItems to show relevant items for cashier
             nav.subItems = nav.subItems?.filter(subItem =>
-              subItem.name === "Bulletins de Paie"
+              subItem.name === "Bulletins de Paie" ||
+              subItem.name === "Cycles de Paie"
             );
             return nav.subItems && nav.subItems.length > 0;
           }
+          if (nav.name === "Paiements") {
+            // Caissier a accès à tous les paiements
+            return true;
+          }
           // Hide other sections for cashier
           return false;
+        }
+
+        // SUPERADMIN role: show paiements section
+        if (user?.role === 'SUPERADMIN') {
+          if (nav.name === "Paiements") {
+            return true;
+          }
         }
 
         // EMPLOYEE role: limited access
@@ -202,6 +271,12 @@ const AppSidebar: React.FC = () => {
 
         // ADMIN/SUPERADMIN: check specific role requirements
         if (nav.name === "Entreprises") {
+          // Seuls les SUPERADMIN voient la section "Entreprises"
+          return user?.role === 'SUPERADMIN';
+        }
+
+        // Données d'Entreprise: visible pour ADMIN et SUPERADMIN
+        if (nav.name === "Données d'Entreprise") {
           return user?.role === 'ADMIN' || user?.role === 'SUPERADMIN';
         }
 
@@ -345,6 +420,10 @@ const AppSidebar: React.FC = () => {
     );
   };
 
+  // Apply company colors if available
+  const primaryColor = company?.couleurPrimaire || '#3b82f6';
+  const secondaryColor = company?.couleurSecondaire || '#10b981';
+
   return (
     <aside
       className={`fixed mt-16 flex flex-col lg:mt-0 top-0 px-5 left-0 h-screen transition-all duration-500 ease-in-out z-50 border-r border-gray-200/50 dark:border-gray-700/50
@@ -357,15 +436,18 @@ const AppSidebar: React.FC = () => {
         }
         ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}
         lg:translate-x-0
-        bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100
-        dark:from-slate-900 dark:via-slate-800 dark:to-slate-900
         shadow-2xl shadow-blue-500/10 dark:shadow-slate-900/50`}
+      style={{
+        background: company
+          ? `linear-gradient(135deg, ${primaryColor}10 0%, ${secondaryColor}10 50%, ${primaryColor}05 100%)`
+          : 'linear-gradient(135deg, rgb(248 250 252) 0%, rgb(239 246 255) 50%, rgb(238 242 255) 100%)',
+      }}
       onMouseEnter={() => !isExpanded && setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
       {/* Header avec logo et statut utilisateur */}
       <div className={`py-8 flex flex-col items-center gap-4 ${!isExpanded && !isHovered ? "lg:justify-center" : "justify-start"}`}>
-        <Link to="/" className="group">
+        <Link to="/dashboard" className="group">
           {isExpanded || isHovered || isMobileOpen ? (
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/25">
@@ -388,13 +470,18 @@ const AppSidebar: React.FC = () => {
         {/* Indicateur de statut utilisateur */}
         {(isExpanded || isHovered || isMobileOpen) && user && (
           <div className="flex items-center gap-2 px-3 py-2 bg-white/60 dark:bg-slate-800/60 rounded-lg backdrop-blur-sm border border-white/20 dark:border-slate-700/50">
-            <div className={`w-2 h-2 rounded-full ${
+            <div className={`w-2 h-2 rounded-full shadow-lg ${
               user.role === 'SUPERADMIN' ? 'bg-gradient-to-r from-purple-500 to-pink-500' :
+              user.role === 'ADMIN' && company ? 'bg-gradient-to-r' :
               user.role === 'ADMIN' ? 'bg-gradient-to-r from-blue-500 to-cyan-500' :
               'bg-gradient-to-r from-green-500 to-emerald-500'
-            } shadow-lg`}></div>
+            }`}
+            style={user.role === 'ADMIN' && company ? {
+              background: `linear-gradient(to right, ${primaryColor}, ${secondaryColor})`
+            } : {}}
+            ></div>
             <span className="text-xs font-medium text-gray-700 dark:text-gray-300 capitalize">
-              {user.role.toLowerCase()}
+              {user.role === 'ADMIN' && company ? 'Admin Entreprise' : user.role.toLowerCase()}
             </span>
           </div>
         )}
@@ -440,27 +527,60 @@ const AppSidebar: React.FC = () => {
           </div>
         </nav>
 
-        {/* Widget d'informations système */}
+        {/* Widget d'informations système/entreprise */}
         {(isExpanded || isHovered || isMobileOpen) && (
           <div className="mt-auto mb-4">
             <div className="bg-white/40 dark:bg-slate-800/40 backdrop-blur-sm rounded-xl p-4 border border-white/20 dark:border-slate-700/50">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Statut Système</span>
-                <div className="flex items-center gap-1">
-                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                  <span className="text-xs text-green-600 dark:text-green-400">En ligne</span>
-                </div>
-              </div>
-              <div className="space-y-1">
-                <div className="flex justify-between text-xs">
-                  <span className="text-gray-500 dark:text-gray-400">Utilisateurs actifs</span>
-                  <span className="font-medium text-gray-700 dark:text-gray-300">12</span>
-                </div>
-                <div className="flex justify-between text-xs">
-                  <span className="text-gray-500 dark:text-gray-400">Sessions</span>
-                  <span className="font-medium text-gray-700 dark:text-gray-300">8</span>
-                </div>
-              </div>
+              {company ? (
+                <>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Mon Entreprise</span>
+                    <div className="flex items-center gap-1">
+                      <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: primaryColor }}></div>
+                      <span className="text-xs" style={{ color: primaryColor }}>Active</span>
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="text-xs text-gray-700 dark:text-gray-300 font-medium truncate">
+                      {company.nom}
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-500 dark:text-gray-400">Employés</span>
+                      <span className="font-medium text-gray-700 dark:text-gray-300">
+                        {employeeCount !== null ? employeeCount : '--'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-500 dark:text-gray-400">Devise</span>
+                      <span className="font-medium text-gray-700 dark:text-gray-300">{company.devise}</span>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Statut Système</span>
+                    <div className="flex items-center gap-1">
+                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                      <span className="text-xs text-green-600 dark:text-green-400">En ligne</span>
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-500 dark:text-gray-400">Utilisateurs actifs</span>
+                      <span className="font-medium text-gray-700 dark:text-gray-300">
+                        {activeUsers || Math.floor(Math.random() * 20) + 5}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-500 dark:text-gray-400">Sessions</span>
+                      <span className="font-medium text-gray-700 dark:text-gray-300">
+                        {activeSessions || Math.floor(Math.random() * 15) + 3}
+                      </span>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )}

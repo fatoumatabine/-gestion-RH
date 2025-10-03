@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useCompany } from '../../context/CompanyContext';
 import { paymentsService } from '../../services/payments';
 
 interface Payment {
@@ -22,6 +24,8 @@ interface Payment {
 
 const CashierDashboard: React.FC = () => {
   const { user } = useAuth();
+  const { company } = useCompany();
+  const navigate = useNavigate();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
@@ -95,9 +99,9 @@ const CashierDashboard: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-indigo-50">
+    <div className="min-h-screen bg-company-dashboard/10">
       {/* Header */}
-      <div className="bg-gradient-to-r from-pink-500 to-purple-600 shadow-lg">
+      <div className="bg-company-primary shadow-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="py-6">
             <div className="flex items-center justify-between">
@@ -105,11 +109,20 @@ const CashierDashboard: React.FC = () => {
                 <h1 className="text-3xl font-bold text-white">
                   👩‍💼 Espace Caissier
                 </h1>
-                <p className="mt-1 text-pink-100">
+                <p className="mt-1 text-white/80">
                   Bienvenue, {user?.firstName} ! Gérez les paiements et bulletins de salaire
                 </p>
               </div>
               <div className="flex items-center space-x-4">
+                <button
+                  onClick={() => navigate('/attendance/scan')}
+                  className="bg-white/20 backdrop-blur-sm hover:bg-white/30 rounded-lg px-4 py-2 transition-colors duration-200 flex items-center space-x-2"
+                >
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 21h.01M12 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="text-white font-medium">Scanner QR</span>
+                </button>
                 <div className="bg-white/20 backdrop-blur-sm rounded-lg px-4 py-2">
                   <div className="text-white text-sm">Solde total</div>
                   <div className="text-white font-bold text-xl">
@@ -186,7 +199,7 @@ const CashierDashboard: React.FC = () => {
         <div className="bg-white rounded-xl shadow-lg overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200">
             <h2 className="text-xl font-semibold text-gray-900 flex items-center">
-              <svg className="w-6 h-6 text-pink-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-6 h-6 text-company-primary mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
               Tous les Bulletins de Salaire
@@ -210,24 +223,24 @@ const CashierDashboard: React.FC = () => {
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-pink-50">
+                <thead className="bg-company-primary/10">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-pink-700 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-company-primary uppercase tracking-wider">
                       Employé
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-pink-700 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-company-primary uppercase tracking-wider">
                       Poste
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-pink-700 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-company-primary uppercase tracking-wider">
                       Montant
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-pink-700 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-company-primary uppercase tracking-wider">
                       Date
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-pink-700 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-company-primary uppercase tracking-wider">
                       Statut
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-pink-700 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-company-primary uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
@@ -272,7 +285,7 @@ const CashierDashboard: React.FC = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <button
                           onClick={() => handleDownloadBulletin(payment.id)}
-                          className="inline-flex items-center px-3 py-1 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-pink-600 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 transition-colors duration-200"
+                          className="inline-flex items-center px-3 py-1 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-company-primary hover:bg-company-primary/80 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-company-primary transition-colors duration-200"
                         >
                           <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />

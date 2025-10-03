@@ -23,6 +23,10 @@ const AddCompany: React.FC = () => {
     telephone: '',
     email: '',
     siteWeb: '',
+    logo: '',
+    couleurPrimaire: '#2563eb',
+    couleurSecondaire: '#64748b',
+    couleurDashboard: '#1e293b',
     description: '',
     devise: 'XOF',
     timezone: 'Africa/Dakar',
@@ -288,6 +292,108 @@ const AddCompany: React.FC = () => {
                   className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-white"
                   placeholder="Description de l'entreprise, ses activités, etc."
                 />
+              </div>
+
+              {/* Personnalisation */}
+              <div className="lg:col-span-2">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
+                  <FaBuilding className="mr-2 text-purple-600" />
+                  Personnalisation
+                </h3>
+              </div>
+
+              {/* Logo */}
+              <div className="lg:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Logo (URL)
+                </label>
+                <input
+                  type="url"
+                  name="logo"
+                  value={formData.logo}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-white"
+                  placeholder="https://example.com/logo.png"
+                />
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  URL de l'image du logo de l'entreprise
+                </p>
+              </div>
+
+              {/* Couleurs */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Couleur principale
+                </label>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="color"
+                    name="couleurPrimaire"
+                    value={formData.couleurPrimaire}
+                    onChange={handleInputChange}
+                    className="w-12 h-10 border border-gray-300 dark:border-slate-600 rounded cursor-pointer"
+                  />
+                  <input
+                    type="text"
+                    value={formData.couleurPrimaire}
+                    onChange={(e) => setFormData(prev => ({ ...prev, couleurPrimaire: e.target.value }))}
+                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-white"
+                    placeholder="#2563eb"
+                  />
+                </div>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  Couleur principale du thème
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Couleur secondaire
+                </label>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="color"
+                    name="couleurSecondaire"
+                    value={formData.couleurSecondaire}
+                    onChange={handleInputChange}
+                    className="w-12 h-10 border border-gray-300 dark:border-slate-600 rounded cursor-pointer"
+                  />
+                  <input
+                    type="text"
+                    value={formData.couleurSecondaire}
+                    onChange={(e) => setFormData(prev => ({ ...prev, couleurSecondaire: e.target.value }))}
+                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-white"
+                    placeholder="#64748b"
+                  />
+                </div>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  Couleur secondaire du thème
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Couleur du dashboard
+                </label>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="color"
+                    name="couleurDashboard"
+                    value={formData.couleurDashboard}
+                    onChange={handleInputChange}
+                    className="w-12 h-10 border border-gray-300 dark:border-slate-600 rounded cursor-pointer"
+                  />
+                  <input
+                    type="text"
+                    value={formData.couleurDashboard}
+                    onChange={(e) => setFormData(prev => ({ ...prev, couleurDashboard: e.target.value }))}
+                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-white"
+                    placeholder="#1e293b"
+                  />
+                </div>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  Couleur de fond du dashboard
+                </p>
               </div>
 
               {/* Paramètres système */}

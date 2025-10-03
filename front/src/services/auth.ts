@@ -50,7 +50,7 @@ class AuthService {
             // Session expirée ou token invalide
             localStorage.removeItem('auth_token');
             localStorage.removeItem('user');
-            window.location.href = '/signin';
+            window.location.href = '/auth/sign-in';
             throw new Error('Session expirée. Veuillez vous reconnecter.');
           }
         }

@@ -33,7 +33,7 @@ export default function SalaryHistory() {
         setLoading(true);
         const response = await fetch("http://localhost:5000/api/payrolls/salary-history", {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
+            Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
           },
         });
 

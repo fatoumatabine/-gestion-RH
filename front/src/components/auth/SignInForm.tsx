@@ -43,7 +43,7 @@ export default function SignInForm() {
       await login(validatedData.email, validatedData.password);
 
       // Redirect to dashboard
-      navigate('/');
+      navigate('/dashboard');
     } catch (err) {
       if (err instanceof ZodError) {
         // Erreurs de validation Zod
@@ -209,7 +209,7 @@ export default function SignInForm() {
             <p className="text-sm text-gray-600 dark:text-gray-400">
               Vous n'avez pas de compte ?{" "}
               <Link
-                to="/signup"
+                to="/auth/sign-up"
                 className="font-semibold text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300 transition-colors duration-200"
               >
                 Créer un compte

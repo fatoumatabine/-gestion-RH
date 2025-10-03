@@ -3,6 +3,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import PageMeta from "../../components/common/PageMeta";
+import { useToast } from "../../context/ToastContext";
+import { useAuth } from "../../context/AuthContext";
 
 // Types
 interface Company {
@@ -32,6 +34,15 @@ interface PayRun {
   };
 }
 
+interface Bulletin {
+  id: number;
+  statutPaiement: string;
+}
+
+interface PaymentResult {
+  error?: string;
+}
+
 // Schema de validation
 const generatePayrollSchema = z.object({
   entrepriseId: z.string().min(1, "Veuillez sélectionner une entreprise"),
@@ -42,6 +53,8 @@ const generatePayrollSchema = z.object({
 type GeneratePayrollForm = z.infer<typeof generatePayrollSchema>;
 
 export default function GeneratePayroll() {
+  const { user } = useAuth();
+  const { showSuccess, showError, showInfo } = useToast();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [periodesPaie, setPeriodesPaie] = useState<PeriodePaie[]>([]);
   const [payRuns, setPayRuns] = useState<PayRun[]>([]);
@@ -49,7 +62,6 @@ export default function GeneratePayroll() {
   const [generating, setGenerating] = useState(false);
   const [processingPayments, setProcessingPayments] = useState<number | null>(null);
   const [generatingPDFs, setGeneratingPDFs] = useState<number | null>(null);
-  const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
 
   const {
     register,
@@ -69,7 +81,7 @@ export default function GeneratePayroll() {
       try {
         const response = await fetch("http://localhost:5000/api/companies", {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
+            Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
           },
         });
         if (response.ok) {
@@ -92,7 +104,7 @@ export default function GeneratePayroll() {
         // TODO: Filtrer par entreprise sélectionnée
         const response = await fetch("http://localhost:5000/api/payrolls/periodes-paie", {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
+            Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
           },
         });
         if (response.ok) {
@@ -113,7 +125,7 @@ export default function GeneratePayroll() {
       try {
         const response = await fetch("http://localhost:5000/api/payrolls/payruns/list", {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
+            Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
           },
         });
         if (response.ok) {
@@ -130,7 +142,6 @@ export default function GeneratePayroll() {
 
   const onSubmit = async (data: GeneratePayrollForm) => {
     setLoading(true);
-    setMessage(null);
 
     try {
       // Créer le payrun
@@ -138,7 +149,7 @@ export default function GeneratePayroll() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
         },
         body: JSON.stringify({
           entrepriseId: parseInt(data.entrepriseId),
@@ -159,7 +170,7 @@ export default function GeneratePayroll() {
       const generateResponse = await fetch(`http://localhost:5000/api/payrolls/payruns/${payRunId}/generate`, {
         method: "PUT",
         headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
         },
       });
 
@@ -169,16 +180,16 @@ export default function GeneratePayroll() {
 
       const generateData = await generateResponse.json();
 
-      setMessage({
-        type: 'success',
-        text: `Payrun créé avec succès ! ${generateData.payRun.nombreEmployes} bulletins générés.`
-      });
+      showSuccess(
+        'Paie générée avec succès !',
+        `${generateData.payRun.nombreEmployes} bulletins générés pour le cycle de paie.`
+      );
 
       reset();
       // Recharger les payruns
       const updatedResponse = await fetch("http://localhost:5000/api/payrolls/payruns/list", {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
         },
       });
       if (updatedResponse.ok) {
@@ -188,10 +199,10 @@ export default function GeneratePayroll() {
 
     } catch (error) {
       console.error("Erreur:", error);
-      setMessage({
-        type: 'error',
-        text: error instanceof Error ? error.message : "Une erreur est survenue"
-      });
+      showError(
+        'Erreur lors de la génération',
+        error instanceof Error ? error.message : "Une erreur est survenue lors de la génération de la paie"
+      );
     } finally {
       setLoading(false);
       setGenerating(false);
@@ -200,13 +211,12 @@ export default function GeneratePayroll() {
 
   const handleProcessPayments = async (payRunId: number) => {
     setProcessingPayments(payRunId);
-    setMessage(null);
 
     try {
       // Récupérer les bulletins du payrun
       const summaryResponse = await fetch(`http://localhost:5000/api/payrolls/payruns/${payRunId}/summary`, {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
         },
       });
 
@@ -215,31 +225,32 @@ export default function GeneratePayroll() {
       }
 
       const summary = await summaryResponse.json();
-      const pendingBulletins = summary.bulletins.filter((b: any) => b.statutPaiement === 'EN_ATTENTE');
+      const pendingBulletins = summary.bulletins.filter((b: Bulletin) => b.statutPaiement === 'EN_ATTENTE');
 
       if (pendingBulletins.length === 0) {
-        setMessage({
-          type: 'info',
-          text: 'Tous les bulletins de ce cycle sont déjà payés'
-        });
+        showInfo(
+          'Information',
+          'Tous les bulletins de ce cycle sont déjà payés'
+        );
         return;
       }
 
       // Traiter les paiements pour tous les bulletins en attente
-      const bulletinIds = pendingBulletins.map((b: any) => b.id);
+      const bulletinIds = pendingBulletins.map((b: Bulletin) => b.id);
 
       const paymentResponse = await fetch(`http://localhost:5000/api/payrolls/payruns/${payRunId}/process-payments`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
         },
         body: JSON.stringify({
           bulletinIds,
           paymentData: {
             amount: 0, // Sera calculé automatiquement pour chaque bulletin
             paymentMethod: 'BANK_TRANSFER',
-            notes: 'Paiement automatique du cycle de paie'
+            notes: 'Paiement automatique du cycle de paie',
+            processedBy: user?.id
           }
         }),
       });
@@ -249,16 +260,17 @@ export default function GeneratePayroll() {
       }
 
       const paymentResult = await paymentResponse.json();
+      const successCount = paymentResult.results.filter((r: PaymentResult) => !r.error).length;
 
-      setMessage({
-        type: 'success',
-        text: `Paiements traités pour ${paymentResult.results.filter((r: any) => !r.error).length} bulletins`
-      });
+      showSuccess(
+        'Paiements traités avec succès !',
+        `${successCount} bulletins ont été payés avec succès.`
+      );
 
       // Recharger les payruns
       const updatedResponse = await fetch("http://localhost:5000/api/payrolls/payruns/list", {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
         },
       });
       if (updatedResponse.ok) {
@@ -268,10 +280,10 @@ export default function GeneratePayroll() {
 
     } catch (error) {
       console.error("Erreur:", error);
-      setMessage({
-        type: 'error',
-        text: error instanceof Error ? error.message : "Une erreur est survenue lors du traitement des paiements"
-      });
+      showError(
+        'Erreur de paiement',
+        error instanceof Error ? error.message : "Une erreur est survenue lors du traitement des paiements"
+      );
     } finally {
       setProcessingPayments(null);
     }
@@ -279,13 +291,12 @@ export default function GeneratePayroll() {
 
   const handleGeneratePDFs = async (payRunId: number) => {
     setGeneratingPDFs(payRunId);
-    setMessage(null);
 
     try {
       const response = await fetch(`http://localhost:5000/api/payrolls/payruns/${payRunId}/generate-pdfs`, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
         },
       });
 
@@ -295,15 +306,20 @@ export default function GeneratePayroll() {
 
       const result = await response.json();
 
-      setMessage({
-        type: 'success',
-        text: `${result.result.generatedPDFs} PDFs générés avec succès`
-      });
+      showSuccess(
+        'PDFs générés avec succès !',
+        `${result.result.generatedPDFs} bulletins de paie ont été générés en PDF.`
+      );
+
+      // Télécharger automatiquement les PDFs générés
+      if (result.result.generatedPDFs > 0) {
+        await downloadPayRunPDFs(payRunId);
+      }
 
       // Recharger les payruns
       const updatedResponse = await fetch("http://localhost:5000/api/payrolls/payruns/list", {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
         },
       });
       if (updatedResponse.ok) {
@@ -313,12 +329,59 @@ export default function GeneratePayroll() {
 
     } catch (error) {
       console.error("Erreur:", error);
-      setMessage({
-        type: 'error',
-        text: error instanceof Error ? error.message : "Une erreur est survenue lors de la génération des PDFs"
-      });
+      showError(
+        'Erreur de génération PDF',
+        error instanceof Error ? error.message : "Une erreur est survenue lors de la génération des PDFs"
+      );
     } finally {
       setGeneratingPDFs(null);
+    }
+  };
+
+  const downloadPayRunPDFs = async (payRunId: number) => {
+    try {
+      // Récupérer les bulletins du payrun
+      const summaryResponse = await fetch(`http://localhost:5000/api/payrolls/payruns/${payRunId}/summary`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+        },
+      });
+
+      if (!summaryResponse.ok) {
+        throw new Error("Erreur lors de la récupération des bulletins");
+      }
+
+      const summary = await summaryResponse.json();
+      const bulletins = summary.bulletins || [];
+
+      // Télécharger chaque PDF
+      for (const bulletin of bulletins) {
+        if (bulletin.cheminPDF) {
+          try {
+            const pdfResponse = await fetch(`http://localhost:5000/api/payrolls/${bulletin.id}/pdf`, {
+              headers: {
+                Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+              },
+            });
+
+            if (pdfResponse.ok) {
+              const blob = await pdfResponse.blob();
+              const url = window.URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `${bulletin.numeroBulletin}.pdf`;
+              document.body.appendChild(a);
+              a.click();
+              window.URL.revokeObjectURL(url);
+              document.body.removeChild(a);
+            }
+          } catch (downloadError) {
+            console.error(`Erreur lors du téléchargement du PDF ${bulletin.numeroBulletin}:`, downloadError);
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Erreur lors du téléchargement des PDFs:", error);
     }
   };
 
@@ -418,19 +481,6 @@ export default function GeneratePayroll() {
               </button>
             </div>
           </form>
-
-          {/* Message de feedback */}
-          {message && (
-            <div className={`mt-4 rounded-lg p-4 ${
-              message.type === 'success'
-                ? 'bg-green-50 text-green-800 border border-green-200 dark:bg-green-900 dark:text-green-200'
-                : message.type === 'error'
-                ? 'bg-red-50 text-red-800 border border-red-200 dark:bg-red-900 dark:text-red-200'
-                : 'bg-blue-50 text-blue-800 border border-blue-200 dark:bg-blue-900 dark:text-blue-200'
-            }`}>
-              {message.text}
-            </div>
-          )}
         </div>
 
         {/* Liste des payruns existants */}

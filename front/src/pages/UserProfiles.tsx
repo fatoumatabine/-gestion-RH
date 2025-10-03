@@ -2,12 +2,14 @@ import { useState } from "react";
 import PageBreadcrumb from "../components/common/PageBreadCrumb";
 import PageMeta from "../components/common/PageMeta";
 import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
 import Button from "../components/ui/button/Button";
 import Input from "../components/form/input/InputField";
 import Label from "../components/form/Label";
 
 export default function UserProfiles() {
   const { user, logout } = useAuth();
+  const { showError, showInfo } = useToast();
   const [activeTab, setActiveTab] = useState("profile");
   const [isEditing, setIsEditing] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -73,11 +75,11 @@ export default function UserProfiles() {
 
   const handlePasswordChange = async () => {
     if (newPassword !== confirmPassword) {
-      alert("Les mots de passe ne correspondent pas");
+      showError("Erreur de validation", "Les mots de passe ne correspondent pas");
       return;
     }
     // TODO: Implement password change API call
-    alert("Fonctionnalité de changement de mot de passe en développement");
+    showInfo("Information", "Fonctionnalité de changement de mot de passe en développement");
   };
 
   return (

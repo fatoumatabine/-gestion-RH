@@ -155,9 +155,22 @@ const CompanyDetail: React.FC = () => {
                 </Link>
                 <div className="flex items-center">
                   <div className="flex-shrink-0 h-12 w-12">
-                    <div className="h-12 w-12 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center">
-                      <FaBuilding className="h-6 w-6 text-white" />
-                    </div>
+                    {company.logo ? (
+                      <img
+                        src={`http://localhost:5000${company.logo}`}
+                        alt={`${company.nom} logo`}
+                        className="h-12 w-12 rounded-lg object-cover"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.onerror = null;
+                          target.src = '';
+                        }}
+                      />
+                    ) : (
+                      <div className="h-12 w-12 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center">
+                        <FaBuilding className="h-6 w-6 text-white" />
+                      </div>
+                    )}
                   </div>
                   <div className="ml-4">
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white">

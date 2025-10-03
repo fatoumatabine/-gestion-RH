@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import PageMeta from '../../components/common/PageMeta';
 import { companiesService, Company } from '../../services/companies';
+import { employeesService } from '../../services/employees';
+import { usersService } from '../../services/users';
+import { useToast } from '../../context/ToastContext';
 import {
   FaBuilding,
   FaPlus,
@@ -14,15 +17,33 @@ import {
   FaMoneyBillWave,
   FaSearch,
   FaFilter,
+  FaUserPlus,
+  FaTimes,
 } from 'react-icons/fa';
 
 const CompanyList: React.FC = () => {
+  const { showSuccess, showError } = useToast();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [showAddEmployeeModal, setShowAddEmployeeModal] = useState(false);
+  const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
+  const [employeeForm, setEmployeeForm] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    password: '',
+    role: 'CASHIER',
+    department: '',
+    position: '',
+    salary: ''
+  });
+  const [creatingEmployee, setCreatingEmployee] = useState(false);
+
 
   useEffect(() => {
     loadCompanies();
@@ -63,6 +84,65 @@ const CompanyList: React.FC = () => {
       }
     }
   };
+
+  const handleOpenAddEmployeeModal = (company: Company) => {
+    setSelectedCompany(company);
+    setShowAddEmployeeModal(true);
+  };
+
+  const handleCloseAddEmployeeModal = () => {
+    setShowAddEmployeeModal(false);
+    setSelectedCompany(null);
+    setEmployeeForm({
+      firstName: '',
+      lastName: '',
+      email: '',
+      phone: '',
+      password: '',
+      role: 'CASHIER',
+      department: '',
+      position: '',
+      salary: ''
+    });
+  };
+
+  const handleCreateEmployee = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedCompany) return;
+
+    setCreatingEmployee(true);
+    try {
+      // Créer d'abord l'utilisateur
+      const user = await usersService.createUser({
+        email: employeeForm.email,
+        password: employeeForm.password,
+        firstName: employeeForm.firstName,
+        lastName: employeeForm.lastName,
+        role: employeeForm.role,
+        phone: employeeForm.phone
+      });
+
+      // Créer ensuite l'employé
+      await employeesService.createEmployee({
+        userId: user.id,
+        entrepriseId: selectedCompany.id,
+        department: employeeForm.department,
+        position: employeeForm.position,
+        salary: parseFloat(employeeForm.salary) || 0,
+        phone: employeeForm.phone
+      });
+
+      showSuccess('Employé créé avec succès');
+      handleCloseAddEmployeeModal();
+      await loadCompanies(); // Recharger la liste pour mettre à jour les statistiques
+    } catch (err) {
+      console.error('Error creating employee:', err);
+      showError('Erreur lors de la création de l\'employé');
+    } finally {
+      setCreatingEmployee(false);
+    }
+  };
+
 
   const filteredCompanies = companies.filter(company => {
     const matchesSearch = company.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -235,11 +315,24 @@ const CompanyList: React.FC = () => {
                       <tr key={company.id} className="hover:bg-gray-50 dark:hover:bg-slate-700">
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
-                            <div className="flex-shrink-0 h-10 w-10">
-                              <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center">
-                                <FaBuilding className="h-5 w-5 text-white" />
-                              </div>
-                            </div>
+<div className="flex-shrink-0 h-10 w-10">
+  {company.logo ? (
+    <img
+      src={`http://localhost:5000${company.logo}`}
+      alt={`${company.nom} logo`}
+      className="h-10 w-10 rounded-lg object-cover"
+      onError={(e) => {
+        const target = e.target as HTMLImageElement;
+        target.onerror = null;
+        target.src = '';
+      }}
+    />
+  ) : (
+    <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center">
+      <FaBuilding className="h-5 w-5 text-white" />
+    </div>
+  )}
+</div>
                             <div className="ml-4">
                               <div className="text-sm font-medium text-gray-900 dark:text-white">
                                 {company.nom}
@@ -318,6 +411,13 @@ const CompanyList: React.FC = () => {
                               {company.estActive ? <FaToggleOff className="h-4 w-4" /> : <FaToggleOn className="h-4 w-4" />}
                             </button>
                             <button
+                              onClick={() => handleOpenAddEmployeeModal(company)}
+                              className="text-purple-600 hover:text-purple-900 dark:text-purple-400 dark:hover:text-purple-300"
+                              title="Ajouter un employé"
+                            >
+                              <FaUserPlus className="h-4 w-4" />
+                            </button>
+                            <button
                               onClick={() => handleDelete(company.id, company.nom)}
                               className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
                               title="Supprimer"
@@ -384,9 +484,11 @@ const CompanyList: React.FC = () => {
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Salaire Moyen</p>
                   <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                    {companies.length > 0
-                      ? Math.round(companies.reduce((sum, c) => sum + (c.salaireMoyen || 0), 0) / companies.length).toLocaleString()
-                      : 0} FCFA
+                    {(() => {
+                      if (companies.length === 0) return '0 FCFA';
+                      const average = companies.reduce((sum, c) => sum + (c.salaireMoyen || 0), 0) / companies.length;
+                      return isNaN(average) ? '0 FCFA' : Math.round(average).toLocaleString() + ' FCFA';
+                    })()}
                   </p>
                 </div>
               </div>
@@ -394,6 +496,197 @@ const CompanyList: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Add Employee Modal */}
+      {showAddEmployeeModal && (
+  <div className="fixed inset-0 bg-black bg-opacity-30 backdrop-blur-sm flex items-center justify-center z-50">
+    <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+      <div className="p-6">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center">
+            <FaUserPlus className="mr-3 text-purple-600" />
+            Ajouter un employé à {selectedCompany?.nom}
+          </h2>
+          <button
+            onClick={handleCloseAddEmployeeModal}
+            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+          >
+            <FaTimes className="h-6 w-6" />
+          </button>
+        </div>
+
+        <form onSubmit={handleCreateEmployee} className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Personal Information */}
+            <div className="md:col-span-2">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+                Informations personnelles
+              </h3>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Prénom <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={employeeForm.firstName}
+                onChange={(e) => setEmployeeForm(prev => ({ ...prev, firstName: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-white"
+                placeholder="Ex: Jean"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Nom <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={employeeForm.lastName}
+                onChange={(e) => setEmployeeForm(prev => ({ ...prev, lastName: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-white"
+                placeholder="Ex: Dupont"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Email <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="email"
+                value={employeeForm.email}
+                onChange={(e) => setEmployeeForm(prev => ({ ...prev, email: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-white"
+                placeholder="exemple@email.com"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Téléphone
+              </label>
+              <input
+                type="tel"
+                value={employeeForm.phone}
+                onChange={(e) => setEmployeeForm(prev => ({ ...prev, phone: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-white"
+                placeholder="+221 77 123 45 67"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Mot de passe <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="password"
+                value={employeeForm.password}
+                onChange={(e) => setEmployeeForm(prev => ({ ...prev, password: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-white"
+                placeholder="Mot de passe"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Rôle <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={employeeForm.role}
+                onChange={(e) => setEmployeeForm(prev => ({ ...prev, role: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-white"
+              >
+                <option value="CASHIER">Caissier</option>
+                <option value="ADMIN">Administrateur</option>
+              </select>
+            </div>
+
+            {/* Professional Information */}
+            <div className="md:col-span-2">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4 mt-6">
+                Informations professionnelles
+              </h3>
+            </div>
+
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Département
+              </label>
+              <input
+                type="text"
+                value={employeeForm.department}
+                onChange={(e) => setEmployeeForm(prev => ({ ...prev, department: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-white"
+                placeholder="Ex: Ventes"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Poste
+              </label>
+              <input
+                type="text"
+                value={employeeForm.position}
+                onChange={(e) => setEmployeeForm(prev => ({ ...prev, position: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-white"
+                placeholder="Ex: Caissier principal"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Salaire (XOF)
+              </label>
+              <input
+                type="number"
+                value={employeeForm.salary}
+                onChange={(e) => setEmployeeForm(prev => ({ ...prev, salary: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-white"
+                placeholder="Ex: 500000"
+                min="0"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end space-x-4 pt-6">
+            <button
+              type="button"
+              onClick={handleCloseAddEmployeeModal}
+              className="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
+            >
+              Annuler
+            </button>
+            <button
+              type="submit"
+              disabled={creatingEmployee}
+              className="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+            >
+              {creatingEmployee ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Création...
+                </>
+              ) : (
+                <>
+                  <FaUserPlus className="mr-2" />
+                  Créer l'employé
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+)}
     </>
   );
 };

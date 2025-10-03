@@ -13,6 +13,7 @@ interface Payroll {
     department: string;
   };
   payRun: {
+    id: number;
     dateDebut: string;
     dateFin: string;
   };
@@ -32,7 +33,7 @@ export default function PayrollList() {
         setLoading(true);
         const response = await fetch("http://localhost:5000/api/payrolls", {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
+            Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
           },
         });
 
@@ -61,6 +62,42 @@ export default function PayrollList() {
     return statusConfig[status as keyof typeof statusConfig] || statusConfig.EN_ATTENTE;
   };
 
+  const handleViewBulletin = (payroll: Payroll) => {
+    // For now, navigate to payrun detail since we don't have individual bulletin detail page
+    // TODO: Create individual bulletin detail page
+    window.location.href = `/payrolls/${payroll.payRun.id}`;
+  };
+
+  const handleDownloadPDF = async (payroll: Payroll) => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/payrolls/${payroll.id}/pdf`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+        },
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${payroll.numeroBulletin}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } else if (response.status === 404) {
+        alert("Le PDF n'a pas encore été généré pour ce bulletin. Veuillez d'abord générer les PDFs pour ce payrun.");
+      } else {
+        console.error("Erreur lors du téléchargement du PDF");
+        alert("Erreur lors du téléchargement du PDF");
+      }
+    } catch (error) {
+      console.error("Erreur:", error);
+      alert("Erreur lors du téléchargement du PDF");
+    }
+  };
+
   return (
     <>
       <PageMeta
@@ -78,7 +115,10 @@ export default function PayrollList() {
               Gérez les bulletins de salaire de vos employés
             </p>
           </div>
-          <button className="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600">
+          <button
+            onClick={() => window.location.href = '/payrolls/new'}
+            className="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600"
+          >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
             </svg>
@@ -161,13 +201,21 @@ export default function PayrollList() {
                         </td>
                         <td className="px-6 py-4 text-sm">
                           <div className="flex space-x-2">
-                            <button className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+                            <button
+                              onClick={() => handleViewBulletin(payroll)}
+                              className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                              title="Voir les détails"
+                            >
                               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                               </svg>
                             </button>
-                            <button className="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300">
+                            <button
+                              onClick={() => handleDownloadPDF(payroll)}
+                              className="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300"
+                              title="Télécharger le PDF"
+                            >
                               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                               </svg>

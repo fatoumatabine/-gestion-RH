@@ -12,7 +12,7 @@ export const createCompanySchema = z.object({
 
   telephone: z.string()
     .transform(val => val.replace(/\s/g, ''))
-    .pipe(z.string().regex(/^(\+221|221)?[76-8]\d{8}$/, 'Format de téléphone invalide ()'))
+    .pipe(z.string().regex(/^(\+221|221)?[3-9]\d{7,8}$/, 'Format de téléphone invalide (ex: +221 77 123 45 67 ou 77 123 45 67)'))
     .optional(),
 
   email: z.string()
@@ -47,10 +47,22 @@ export const createCompanySchema = z.object({
     errorMap: () => ({ message: 'Période de paie invalide' })
   }).optional(),
 
+  couleurPrimaire: z.string()
+    .regex(/^#[0-9A-Fa-f]{6}$/, 'Couleur primaire invalide (format hex: #RRGGBB)')
+    .optional(),
+
+  couleurSecondaire: z.string()
+    .regex(/^#[0-9A-Fa-f]{6}$/, 'Couleur secondaire invalide (format hex: #RRGGBB)')
+    .optional(),
+
+  couleurDashboard: z.string()
+    .regex(/^#[0-9A-Fa-f]{6}$/, 'Couleur dashboard invalide (format hex: #RRGGBB)')
+    .optional(),
+
   parametres: z.record(z.any()).optional()
 })
 
 export const updateCompanySchema = createCompanySchema.partial().extend({
   nom: createCompanySchema.shape.nom.optional(),
-  estActive: z.boolean().optional()
+  estActive: z.union([z.boolean(), z.string().transform(val => val === 'true')]).optional()
 })

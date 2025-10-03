@@ -12,7 +12,8 @@ export const createEmployeeSchema = z.object({
   employeeId: z.string()
     .min(1, 'L\'ID employé est requis')
     .max(50, 'L\'ID employé ne peut pas dépasser 50 caractères')
-    .regex(/^[A-Z0-9\-_]+$/, 'L\'ID employé ne peut contenir que des lettres majuscules, chiffres, tirets et underscores'),
+    .regex(/^[A-Z0-9\-_]+$/, 'L\'ID employé ne peut contenir que des lettres majuscules, chiffres, tirets et underscores')
+    .optional(),
 
   department: z.string()
     .max(100, 'Le département ne peut pas dépasser 100 caractères')

@@ -22,6 +22,7 @@ router.get('/', auth, async (req, res) => {
     });
     res.json(employees);
   } catch (error) {
+    console.error('Error fetching employees:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -54,13 +55,23 @@ router.get('/company/:companyId', auth, async (req, res) => {
 router.get('/:id', auth, async (req, res) => {
   try {
     const employee = await prisma.employee.findUnique({
-      where: { id: parseInt(req.params.id) }
+      where: { id: parseInt(req.params.id) },
+      include: {
+        user: {
+          select: {
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true
+          }
+        }
+      }
     });
-    
+
     if (!employee) {
       return res.status(404).json({ error: 'Employee not found' });
     }
-    
+
     res.json(employee);
   } catch (error) {
     res.status(500).json({ error: 'Server error' });
@@ -103,13 +114,31 @@ router.post('/', auth, async (req, res) => {
       return res.status(400).json({ message: 'Entreprise non trouvée' });
     }
 
-    // Vérifier si l'employeeId est unique
+    // Générer automatiquement un matricule unique
+    const company = await prisma.entreprise.findUnique({
+      where: { id: validatedData.entrepriseId },
+      select: { id: true }
+    });
+
+    if (!company) {
+      return res.status(400).json({ message: 'Entreprise non trouvée' });
+    }
+
+    // Compter les employés existants de cette entreprise pour générer le numéro séquentiel
+    const employeeCount = await prisma.employee.count({
+      where: { entrepriseId: validatedData.entrepriseId }
+    });
+
+    // Générer le matricule : ENT-{entrepriseId}-{numéro sur 4 chiffres}
+    const matricule = `ENT-${validatedData.entrepriseId}-${String(employeeCount + 1).padStart(4, '0')}`;
+
+    // Vérifier si ce matricule existe déjà (très improbable mais sécurité)
     const existingEmployee = await prisma.employee.findUnique({
-      where: { employeeId: validatedData.employeeId }
+      where: { employeeId: matricule }
     });
 
     if (existingEmployee) {
-      return res.status(400).json({ message: 'Un employé avec cet ID existe déjà' });
+      return res.status(500).json({ message: 'Erreur de génération du matricule. Veuillez réessayer.' });
     }
 
     // Vérifier si l'utilisateur n'est pas déjà employé
@@ -121,9 +150,45 @@ router.post('/', auth, async (req, res) => {
       return res.status(400).json({ message: 'Cet utilisateur est déjà employé' });
     }
 
+    // Générer automatiquement un QR code unique pour l'employé
+    const { generateSimpleQRCode } = await import('../utils/qrCode.js');
+    const qrCode = await generateSimpleQRCode(matricule);
+
     const employee = await prisma.employee.create({
-      data: validatedData
+      data: {
+        ...validatedData,
+        employeeId: matricule, // Utiliser le matricule généré automatiquement
+        qrCode: qrCode
+      }
     });
+
+    // Créer une notification pour tous les administrateurs
+    try {
+      const admins = await prisma.user.findMany({
+        where: {
+          role: {
+            in: ['ADMIN', 'SUPERADMIN']
+          }
+        }
+      });
+
+      for (const admin of admins) {
+        await prisma.notification.create({
+          data: {
+            userId: admin.id,
+            title: 'Nouvel employé ajouté',
+            message: `Un nouvel employé ${user.firstName} ${user.lastName} a été ajouté à l'entreprise ${entreprise.nom}`,
+            type: 'SUCCESS',
+            category: 'Employés',
+            link: `/employees`,
+            isRead: false
+          }
+        });
+      }
+    } catch (notificationError) {
+      console.error('Erreur lors de la création de la notification:', notificationError);
+      // Ne pas échouer la création de l'employé si la notification échoue
+    }
 
     res.status(201).json({
       message: 'Employé créé avec succès',

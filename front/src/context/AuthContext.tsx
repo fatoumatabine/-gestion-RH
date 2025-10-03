@@ -38,13 +38,34 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   useEffect(() => {
     // Check if user is already logged in on app start
-    const token = authService.getToken();
-    const storedUser = authService.getUser();
+    const checkAuth = async () => {
+      const token = authService.getToken();
+      const storedUser = authService.getUser();
 
-    if (token && storedUser) {
-      setUser(storedUser);
-    }
-    setIsLoading(false);
+      if (token && storedUser) {
+        // Validate token by making a test request
+        try {
+          const response = await fetch('http://localhost:5000/api/test', {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+          });
+
+          if (response.ok) {
+            setUser(storedUser);
+          } else {
+            // Token invalid, clear it
+            authService.logout();
+          }
+        } catch {
+          // Network error or invalid token, clear it
+          authService.logout();
+        }
+      }
+      setIsLoading(false);
+    };
+
+    checkAuth();
   }, []);
 
   const login = async (email: string, password: string) => {

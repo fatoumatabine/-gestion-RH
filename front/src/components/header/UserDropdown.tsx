@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { useAuth } from "../../context/AuthContext";
@@ -7,7 +6,6 @@ import { useAuth } from "../../context/AuthContext";
 export default function UserDropdown() {
   const [isOpen, setIsOpen] = useState(false);
   const { user, logout } = useAuth();
-  const navigate = useNavigate();
 
   function toggleDropdown() {
     setIsOpen(!isOpen);
@@ -20,7 +18,7 @@ export default function UserDropdown() {
   const handleLogout = () => {
     logout();
     closeDropdown();
-    navigate('/auth/sign-in');
+    window.location.href = '/auth/sign-in';
   };
   return (
     <div className="relative">

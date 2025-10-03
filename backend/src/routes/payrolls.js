@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../database/prisma.client.js';
 import { auth } from '../middleware/auth.js';
-import { adminOrSuperAdmin } from '../middleware/role.middleware.js';
+import { cashierOrAbove } from '../middleware/role.middleware.js';
 import { payrollService } from '../services/global/payroll.service.js';
 import { pdfService } from '../services/global/pdf.service.js';
 import path from 'path';
@@ -11,7 +11,7 @@ const router = Router();
 
 // Middleware d'authentification pour toutes les routes
 router.use(auth);
-router.use(adminOrSuperAdmin);
+router.use(cashierOrAbove);
 
 
 // GET /api/payrolls - Récupérer tous les bulletins de paie
@@ -50,6 +50,7 @@ router.get('/', async (req, res) => {
           },
           payRun: {
             select: {
+              id: true,
               reference: true,
               dateDebut: true,
               dateFin: true
@@ -142,6 +143,11 @@ router.get('/payruns/list', async (req, res) => {
 // POST /api/payrolls/payruns - Créer un nouveau payrun
 router.post('/payruns', async (req, res) => {
   try {
+    // Vérifier que l'utilisateur est authentifié
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ message: 'Utilisateur non authentifié' });
+    }
+
     const { entrepriseId, periodePaieId, datePaiement } = req.body;
 
     // Vérifier que l'entreprise existe
@@ -645,6 +651,11 @@ router.post('/bulletin/:id/process-payment', async (req, res) => {
 // POST /api/payrolls/payruns/:id/process-payments - Traiter les paiements en bulk pour un payrun
 router.post('/payruns/:id/process-payments', async (req, res) => {
   try {
+    // Vérifier que l'utilisateur est authentifié
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ message: 'Authentification requise' });
+    }
+
     const { id } = req.params;
     const { bulletinIds, paymentData } = req.body;
 
@@ -684,6 +695,80 @@ router.post('/payruns/:id/generate-pdfs', async (req, res) => {
   } catch (error) {
     console.error('Erreur lors de la génération des PDFs:', error);
     res.status(500).json({ message: 'Erreur lors de la génération des PDFs' });
+  }
+});
+
+// GET /api/payrolls/payruns/:id/bulletin - Récupérer les bulletins d'un payrun
+router.get('/payruns/:id/bulletin', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const bulletins = await prisma.companyBulletin.findMany({
+      where: { payRunId: parseInt(id) },
+      include: {
+        employee: {
+          include: {
+            user: {
+              select: {
+                firstName: true,
+                lastName: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: {
+        creeLe: 'desc'
+      }
+    });
+
+    res.json({ bulletins });
+  } catch (error) {
+    console.error('Erreur lors de la récupération des bulletins du payrun:', error);
+    res.status(500).json({ message: 'Erreur lors de la récupération des bulletins' });
+  }
+});
+
+// GET /api/payrolls/payruns/:id - Récupérer un payrun par ID
+router.get('/payruns/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Check if id is a number, not 'list' or other strings
+    if (isNaN(parseInt(id))) {
+      return res.status(400).json({ message: 'ID invalide' });
+    }
+
+    const payRun = await prisma.companyPayRun.findUnique({
+      where: { id: parseInt(id) },
+      include: {
+        entreprise: {
+          select: {
+            nom: true
+          }
+        },
+        creator: {
+          select: {
+            firstName: true,
+            lastName: true
+          }
+        },
+        _count: {
+          select: {
+            bulletins: true
+          }
+        }
+      }
+    });
+
+    if (!payRun) {
+      return res.status(404).json({ message: 'Payrun non trouvé' });
+    }
+
+    res.json({ payRun });
+  } catch (error) {
+    console.error('Erreur lors de la récupération du payrun:', error);
+    res.status(500).json({ message: 'Erreur lors de la récupération du payrun' });
   }
 });
 

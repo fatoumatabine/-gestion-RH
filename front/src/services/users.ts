@@ -91,10 +91,11 @@ class UsersService {
   }
 
   async createUser(data: CreateUserData): Promise<User> {
-    return this.request('/api/users', {
+    const response = await this.request<{ message: string; user: User }>('/api/users', {
       method: 'POST',
       body: JSON.stringify(data),
     });
+    return response.user;
   }
 
   async updateUser(id: number, data: UpdateUserData): Promise<User> {

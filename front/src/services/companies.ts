@@ -7,6 +7,10 @@ export interface Company {
   telephone?: string;
   email?: string;
   siteWeb?: string;
+  logo?: string;
+  couleurPrimaire?: string;
+  couleurSecondaire?: string;
+  couleurDashboard?: string;
   description?: string;
   devise: string;
   timezone: string;
@@ -26,6 +30,10 @@ export interface CreateCompanyData {
   telephone?: string;
   email?: string;
   siteWeb?: string;
+  logo?: string | File;
+  couleurPrimaire?: string;
+  couleurSecondaire?: string;
+  couleurDashboard?: string;
   description?: string;
   devise?: string;
   timezone?: string;
@@ -35,6 +43,7 @@ export interface CreateCompanyData {
 
 export interface UpdateCompanyData extends Partial<CreateCompanyData> {
   estActive?: boolean;
+  logo?: string | File;
 }
 
 class CompaniesService {
@@ -102,10 +111,61 @@ class CompaniesService {
   }
 
   async updateCompany(id: number, data: UpdateCompanyData): Promise<{ message: string; company: Company }> {
-    return this.request(`/api/companies/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    });
+    // Si on a un fichier logo, utiliser FormData
+    if (data.logo instanceof File) {
+      const formData = new FormData();
+
+      // Ajouter tous les champs sauf logo
+      Object.entries(data).forEach(([key, value]) => {
+        if (key !== 'logo' && value !== undefined && value !== null) {
+          formData.append(key, value.toString());
+        }
+      });
+
+      // Ajouter le fichier logo
+      formData.append('logo', data.logo);
+
+      const url = `${API_BASE_URL}/api/companies/${id}`;
+      const token = localStorage.getItem('auth_token');
+
+      const config: RequestInit = {
+        method: 'PUT',
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+        body: formData,
+      };
+
+      try {
+        const response = await fetch(url, config);
+
+        if (!response.ok) {
+          if (response.status === 401) {
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('user');
+            window.location.href = '/signin';
+            throw new Error('Session expirée. Veuillez vous reconnecter.');
+          }
+          if (response.status === 404) {
+            throw new Error(`La ressource demandée n'existe pas. Veuillez vérifier l'identifiant.`);
+          }
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.message || `Erreur serveur! statut: ${response.status}`);
+        }
+
+        return await response.json();
+      } catch (error) {
+        if (error instanceof Error) {
+          throw error;
+        }
+        console.error('API request failed:', error);
+        throw new Error('Une erreur est survenue lors de la communication avec le serveur');
+      }
+    } else {
+      // Requête normale avec JSON
+      return this.request(`/api/companies/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      });
+    }
   }
 
   async deleteCompany(id: number): Promise<{ message: string }> {
