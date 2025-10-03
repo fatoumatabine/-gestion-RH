@@ -52,12 +52,28 @@ const CompanyList: React.FC = () => {
   const loadCompanies = async () => {
     try {
       setLoading(true);
-      const data = await companiesService.getAllCompanies();
-      setCompanies(data);
+      const data: unknown = await companiesService.getAllCompanies();
+      console.log('API response:', data); // Debug log
+
+      // Handle different response formats
+      let companiesArray: Company[] = [];
+      if (Array.isArray(data)) {
+        companiesArray = data as Company[];
+      } else if (data && Array.isArray((data as any).companies)) { // eslint-disable-line @typescript-eslint/no-explicit-any
+        companiesArray = (data as any).companies; // eslint-disable-line @typescript-eslint/no-explicit-any
+      } else if (data && Array.isArray((data as any).data)) { // eslint-disable-line @typescript-eslint/no-explicit-any
+        companiesArray = (data as any).data; // eslint-disable-line @typescript-eslint/no-explicit-any
+      } else {
+        console.warn('Unexpected API response format:', data);
+        companiesArray = [];
+      }
+
+      setCompanies(companiesArray);
       setError(null);
     } catch (err) {
       setError('Erreur lors du chargement des entreprises');
       console.error('Error loading companies:', err);
+      setCompanies([]); // Set empty array on error
     } finally {
       setLoading(false);
     }
@@ -144,12 +160,12 @@ const CompanyList: React.FC = () => {
   };
 
 
-  const filteredCompanies = companies.filter(company => {
+  const filteredCompanies = (companies || []).filter(company => {
     const matchesSearch = company.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (company.email && company.email.toLowerCase().includes(searchTerm.toLowerCase()));
+                          (company.email && company.email.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesStatus = statusFilter === 'all' ||
-                         (statusFilter === 'active' && company.estActive) ||
-                         (statusFilter === 'inactive' && !company.estActive);
+                          (statusFilter === 'active' && company.estActive) ||
+                          (statusFilter === 'inactive' && !company.estActive);
     return matchesSearch && matchesStatus;
   });
 
@@ -443,7 +459,7 @@ const CompanyList: React.FC = () => {
                 </div>
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Entreprises</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">{companies.length}</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">{(companies || []).length}</p>
                 </div>
               </div>
             </div>
@@ -456,7 +472,7 @@ const CompanyList: React.FC = () => {
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Entreprises Actives</p>
                   <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                    {companies.filter(c => c.estActive).length}
+                    {(companies || []).filter(c => c.estActive).length}
                   </p>
                 </div>
               </div>
@@ -470,7 +486,7 @@ const CompanyList: React.FC = () => {
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Employés</p>
                   <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                    {companies.reduce((sum, c) => sum + c.nombreEmployes, 0)}
+                    {(companies || []).reduce((sum, c) => sum + c.nombreEmployes, 0)}
                   </p>
                 </div>
               </div>
@@ -485,8 +501,9 @@ const CompanyList: React.FC = () => {
                   <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Salaire Moyen</p>
                   <p className="text-2xl font-bold text-gray-900 dark:text-white">
                     {(() => {
-                      if (companies.length === 0) return '0 FCFA';
-                      const average = companies.reduce((sum, c) => sum + (c.salaireMoyen || 0), 0) / companies.length;
+                      const companiesArray = companies || [];
+                      if (companiesArray.length === 0) return '0 FCFA';
+                      const average = companiesArray.reduce((sum, c) => sum + (c.salaireMoyen || 0), 0) / companiesArray.length;
                       return isNaN(average) ? '0 FCFA' : Math.round(average).toLocaleString() + ' FCFA';
                     })()}
                   </p>
@@ -499,194 +516,262 @@ const CompanyList: React.FC = () => {
 
       {/* Add Employee Modal */}
       {showAddEmployeeModal && (
-  <div className="fixed inset-0 bg-black bg-opacity-30 backdrop-blur-sm flex items-center justify-center z-50">
-    <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-      <div className="p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center">
-            <FaUserPlus className="mr-3 text-purple-600" />
-            Ajouter un employé à {selectedCompany?.nom}
-          </h2>
-          <button
-            onClick={handleCloseAddEmployeeModal}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-          >
-            <FaTimes className="h-6 w-6" />
-          </button>
+        <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-md flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl max-w-4xl w-full max-h-[95vh] overflow-hidden">
+            {/* Header with gradient background */}
+            <div className="relative bg-gradient-to-r from-purple-600 via-purple-700 to-indigo-700 p-8 text-white">
+              <div className="absolute inset-0 bg-black bg-opacity-10"></div>
+              <div className="relative flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <div className="p-3 bg-white bg-opacity-20 rounded-2xl backdrop-blur-sm">
+                    <FaUserPlus className="h-8 w-8" />
+                  </div>
+                  <div>
+                    <h1 className="text-2xl font-bold">Ajouter un employé</h1>
+                    <p className="text-purple-100 mt-1">à {selectedCompany?.nom}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={handleCloseAddEmployeeModal}
+                  className="p-2 hover:bg-white hover:bg-opacity-20 rounded-xl transition-all duration-200"
+                >
+                  <FaTimes className="h-6 w-6" />
+                </button>
+              </div>
+            </div>
+
+            {/* Form Content */}
+            <div className="p-8 overflow-y-auto max-h-[calc(95vh-200px)]">
+              <form onSubmit={handleCreateEmployee} className="space-y-8">
+                {/* Personal Information Card */}
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-slate-700 dark:to-slate-600 rounded-2xl p-6 border border-blue-100 dark:border-slate-600">
+                  <div className="flex items-center mb-6">
+                    <div className="p-3 bg-blue-100 dark:bg-blue-900 rounded-xl mr-4">
+                      <svg className="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+                      Informations personnelles
+                    </h3>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Prénom <span className="text-red-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={employeeForm.firstName}
+                          onChange={(e) => setEmployeeForm(prev => ({ ...prev, firstName: e.target.value }))}
+                          className="w-full pl-4 pr-4 py-3 border border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-white transition-all duration-200 hover:border-blue-300"
+                          placeholder="Ex: Jean"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Nom <span className="text-red-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={employeeForm.lastName}
+                          onChange={(e) => setEmployeeForm(prev => ({ ...prev, lastName: e.target.value }))}
+                          className="w-full pl-4 pr-4 py-3 border border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-white transition-all duration-200 hover:border-blue-300"
+                          placeholder="Ex: Dupont"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Email <span className="text-red-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="email"
+                          value={employeeForm.email}
+                          onChange={(e) => setEmployeeForm(prev => ({ ...prev, email: e.target.value }))}
+                          className="w-full pl-4 pr-4 py-3 border border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-white transition-all duration-200 hover:border-blue-300"
+                          placeholder="exemple@email.com"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Téléphone
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="tel"
+                          value={employeeForm.phone}
+                          onChange={(e) => setEmployeeForm(prev => ({ ...prev, phone: e.target.value }))}
+                          className="w-full pl-4 pr-4 py-3 border border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-white transition-all duration-200 hover:border-blue-300"
+                          placeholder="+221 77 123 45 67"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Account Information Card */}
+                <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-slate-700 dark:to-slate-600 rounded-2xl p-6 border border-green-100 dark:border-slate-600">
+                  <div className="flex items-center mb-6">
+                    <div className="p-3 bg-green-100 dark:bg-green-900 rounded-xl mr-4">
+                      <svg className="w-6 h-6 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+                      Informations de compte
+                    </h3>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Mot de passe <span className="text-red-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="password"
+                          value={employeeForm.password}
+                          onChange={(e) => setEmployeeForm(prev => ({ ...prev, password: e.target.value }))}
+                          className="w-full pl-4 pr-4 py-3 border border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-white transition-all duration-200 hover:border-green-300"
+                          placeholder="Mot de passe sécurisé"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Rôle <span className="text-red-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <select
+                          value={employeeForm.role}
+                          onChange={(e) => setEmployeeForm(prev => ({ ...prev, role: e.target.value }))}
+                          className="w-full pl-4 pr-4 py-3 border border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-white transition-all duration-200 hover:border-green-300 appearance-none"
+                        >
+                          <option value="CASHIER">👨‍💼 Caissier</option>
+                          <option value="ADMIN">👑 Administrateur</option>
+                        </select>
+                        <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none">
+                          <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Professional Information Card */}
+                <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-slate-700 dark:to-slate-600 rounded-2xl p-6 border border-purple-100 dark:border-slate-600">
+                  <div className="flex items-center mb-6">
+                    <div className="p-3 bg-purple-100 dark:bg-purple-900 rounded-xl mr-4">
+                      <svg className="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m8 0V8a2 2 0 01-2 2H8a2 2 0 01-2-2V6m8 0H8m0 0V4" />
+                      </svg>
+                    </div>
+                    <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+                      Informations professionnelles
+                    </h3>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Département
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={employeeForm.department}
+                          onChange={(e) => setEmployeeForm(prev => ({ ...prev, department: e.target.value }))}
+                          className="w-full pl-4 pr-4 py-3 border border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-white transition-all duration-200 hover:border-purple-300"
+                          placeholder="Ex: Ventes"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Poste
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={employeeForm.position}
+                          onChange={(e) => setEmployeeForm(prev => ({ ...prev, position: e.target.value }))}
+                          className="w-full pl-4 pr-4 py-3 border border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-white transition-all duration-200 hover:border-purple-300"
+                          placeholder="Ex: Caissier principal"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Salaire (XOF)
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          value={employeeForm.salary}
+                          onChange={(e) => setEmployeeForm(prev => ({ ...prev, salary: e.target.value }))}
+                          className="w-full pl-4 pr-4 py-3 border border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-white transition-all duration-200 hover:border-purple-300"
+                          placeholder="500000"
+                          min="0"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-gray-200 dark:border-slate-700">
+                  <button
+                    type="button"
+                    onClick={handleCloseAddEmployeeModal}
+                    className="flex-1 px-6 py-3 border border-gray-300 dark:border-slate-600 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-all duration-200 font-medium"
+                  >
+                    <div className="flex items-center justify-center">
+                      <FaTimes className="mr-2" />
+                      Annuler
+                    </div>
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={creatingEmployee}
+                    className="flex-1 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-xl font-semibold transition-all duration-200 transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg hover:shadow-xl"
+                  >
+                    {creatingEmployee ? (
+                      <div className="flex items-center justify-center">
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
+                        Création en cours...
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center">
+                        <FaUserPlus className="mr-2" />
+                        Créer l'employé
+                      </div>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
         </div>
-
-        <form onSubmit={handleCreateEmployee} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Personal Information */}
-            <div className="md:col-span-2">
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-                Informations personnelles
-              </h3>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Prénom <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={employeeForm.firstName}
-                onChange={(e) => setEmployeeForm(prev => ({ ...prev, firstName: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-white"
-                placeholder="Ex: Jean"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Nom <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={employeeForm.lastName}
-                onChange={(e) => setEmployeeForm(prev => ({ ...prev, lastName: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-white"
-                placeholder="Ex: Dupont"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Email <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="email"
-                value={employeeForm.email}
-                onChange={(e) => setEmployeeForm(prev => ({ ...prev, email: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-white"
-                placeholder="exemple@email.com"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Téléphone
-              </label>
-              <input
-                type="tel"
-                value={employeeForm.phone}
-                onChange={(e) => setEmployeeForm(prev => ({ ...prev, phone: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-white"
-                placeholder="+221 77 123 45 67"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Mot de passe <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="password"
-                value={employeeForm.password}
-                onChange={(e) => setEmployeeForm(prev => ({ ...prev, password: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-white"
-                placeholder="Mot de passe"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Rôle <span className="text-red-500">*</span>
-              </label>
-              <select
-                value={employeeForm.role}
-                onChange={(e) => setEmployeeForm(prev => ({ ...prev, role: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-white"
-              >
-                <option value="CASHIER">Caissier</option>
-                <option value="ADMIN">Administrateur</option>
-              </select>
-            </div>
-
-            {/* Professional Information */}
-            <div className="md:col-span-2">
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4 mt-6">
-                Informations professionnelles
-              </h3>
-            </div>
-
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Département
-              </label>
-              <input
-                type="text"
-                value={employeeForm.department}
-                onChange={(e) => setEmployeeForm(prev => ({ ...prev, department: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-white"
-                placeholder="Ex: Ventes"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Poste
-              </label>
-              <input
-                type="text"
-                value={employeeForm.position}
-                onChange={(e) => setEmployeeForm(prev => ({ ...prev, position: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-white"
-                placeholder="Ex: Caissier principal"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Salaire (XOF)
-              </label>
-              <input
-                type="number"
-                value={employeeForm.salary}
-                onChange={(e) => setEmployeeForm(prev => ({ ...prev, salary: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-white"
-                placeholder="Ex: 500000"
-                min="0"
-              />
-            </div>
-          </div>
-
-          <div className="flex justify-end space-x-4 pt-6">
-            <button
-              type="button"
-              onClick={handleCloseAddEmployeeModal}
-              className="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
-            >
-              Annuler
-            </button>
-            <button
-              type="submit"
-              disabled={creatingEmployee}
-              className="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-            >
-              {creatingEmployee ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Création...
-                </>
-              ) : (
-                <>
-                  <FaUserPlus className="mr-2" />
-                  Créer l'employé
-                </>
-              )}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  </div>
-)}
+      )}
     </>
   );
 };

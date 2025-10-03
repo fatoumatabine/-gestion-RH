@@ -1,19 +1,20 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import PageMeta from "../../components/common/PageMeta";
-import { employeesService, Employee } from "../../services/employees";
+import { employeesService, Employee, PaginatedEmployeesResponse } from "../../services/employees";
 import { useToast } from "../../context/ToastContext";
 import Button from "../../components/ui/button/Button";
 import InputField from "../../components/form/input/InputField";
 import Select from "../../components/form/Select";
 import Checkbox from "../../components/form/input/Checkbox";
+import Pagination from "../../components/ui/Pagination";
 
 // Modal Component for Employee Details
 const EmployeeDetailsModal = ({ employee, isOpen, onClose }: { employee: Employee | null, isOpen: boolean, onClose: () => void }) => {
   if (!isOpen || !employee) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-white bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
@@ -127,9 +128,11 @@ const EmployeeDetailsModal = ({ employee, isOpen, onClose }: { employee: Employe
 export default function EmployeeList() {
   const navigate = useNavigate();
   const { showError, showSuccess } = useToast();
-  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [employeesData, setEmployeesData] = useState<PaginatedEmployeesResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [showForms, setShowForms] = useState(false);
   const [companyName, setCompanyName] = useState("sali seductionio");
   const [companyAddress, setCompanyAddress] = useState("keur massar");
@@ -157,9 +160,14 @@ export default function EmployeeList() {
       await employeesService.updateEmployee(employeeId, { status: newStatus });
 
       // Mettre à jour la liste localement
-      setEmployees(employees.map(emp =>
-        emp.id === employeeId ? { ...emp, status: newStatus } : emp
-      ));
+      if (employeesData) {
+        setEmployeesData({
+          ...employeesData,
+          employees: employeesData.employees.map(emp =>
+            emp.id === employeeId ? { ...emp, status: newStatus } : emp
+          )
+        });
+      }
     } catch (error) {
       console.error('Erreur lors de la mise à jour du statut:', error);
       showError('Erreur', 'Erreur lors de la mise à jour du statut de l\'employé');
@@ -190,7 +198,12 @@ export default function EmployeeList() {
       try {
         await employeesService.deleteEmployee(employeeId);
         // Mettre à jour la liste localement
-        setEmployees(employees.filter(emp => emp.id !== employeeId));
+        if (employeesData) {
+          setEmployeesData({
+            ...employeesData,
+            employees: employeesData.employees.filter(emp => emp.id !== employeeId)
+          });
+        }
         showSuccess('Succès', 'Employé supprimé avec succès');
       } catch (error) {
         console.error('Erreur lors de la suppression:', error);
@@ -199,23 +212,23 @@ export default function EmployeeList() {
     }
   };
 
-  useEffect(() => {
-    const fetchEmployees = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await employeesService.getAllEmployees();
-        setEmployees(data);
-      } catch (err) {
-        console.error('Error loading employees:', err);
-        setError('Erreur lors du chargement des employés');
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchEmployees = async (page = currentPage, limit = pageSize) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await employeesService.getAllEmployees(page, limit);
+      setEmployeesData(data);
+    } catch (err) {
+      console.error('Error loading employees:', err);
+      setError('Erreur lors du chargement des employés');
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchEmployees();
-  }, []);
+  }, [currentPage, pageSize]);
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
@@ -227,7 +240,7 @@ export default function EmployeeList() {
   };
 
   // Filtrage des employés
-  const filteredEmployees = employees.filter(employee => {
+  const filteredEmployees = (employeesData?.employees || []).filter(employee => {
     if (statusFilter && employee.status !== statusFilter) return false;
     if (contractFilter && employee.contractType !== contractFilter) return false;
     if (departmentFilter && employee.department !== departmentFilter) return false;
@@ -582,7 +595,7 @@ export default function EmployeeList() {
               <Select
                 options={[
                   { value: "", label: "Tous les départements" },
-                  ...Array.from(new Set(employees.map(emp => emp.department).filter(Boolean))).map(dept => ({
+                  ...Array.from(new Set((employeesData?.employees || []).map(emp => emp.department).filter(Boolean))).map(dept => ({
                     value: dept || "",
                     label: dept || ""
                   }))
@@ -592,21 +605,21 @@ export default function EmployeeList() {
               />
             </div>
             <div>
-               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                 Poste
-               </label>
-               <Select
-                 options={[
-                   { value: "", label: "Tous les postes" },
-                   ...Array.from(new Set(employees.map(emp => emp.position).filter(Boolean))).map(pos => ({
-                     value: pos || "",
-                     label: pos || ""
-                   }))
-                 ]}
-                 defaultValue=""
-                 onChange={(value) => setPositionFilter(value)}
-               />
-             </div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Poste
+              </label>
+              <Select
+                options={[
+                  { value: "", label: "Tous les postes" },
+                  ...Array.from(new Set((employeesData?.employees || []).map(emp => emp.position).filter(Boolean))).map(pos => ({
+                    value: pos || "",
+                    label: pos || ""
+                  }))
+                ]}
+                defaultValue=""
+                onChange={(value) => setPositionFilter(value)}
+              />
+            </div>
              <div>
                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                  Entreprise
@@ -614,7 +627,7 @@ export default function EmployeeList() {
                <Select
                  options={[
                    { value: "", label: "Toutes les entreprises" },
-                   ...Array.from(new Set(employees.map(emp => emp.entrepriseId).filter(Boolean))).map(companyId => ({
+                   ...Array.from(new Set((employeesData?.employees || []).map(emp => emp.entrepriseId).filter(Boolean))).map(companyId => ({
                      value: companyId?.toString() || "",
                      label: `Entreprise ${companyId}` // TODO: Récupérer le nom de l'entreprise depuis l'API
                    }))
@@ -632,7 +645,7 @@ export default function EmployeeList() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-theme-sm text-gray-500 dark:text-gray-400">Total Employés</p>
-                <p className="text-2xl font-bold text-gray-800 dark:text-white">{employees.length}</p>
+                <p className="text-2xl font-bold text-gray-800 dark:text-white">{employeesData?.pagination.totalItems || 0}</p>
               </div>
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900">
                 <span className="text-blue-600 dark:text-blue-400 font-bold text-lg">👥</span>
@@ -645,7 +658,7 @@ export default function EmployeeList() {
               <div>
                 <p className="text-theme-sm text-gray-500 dark:text-gray-400">Actifs</p>
                 <p className="text-2xl font-bold text-gray-800 dark:text-white">
-                  {employees.filter(emp => emp.status === 'ACTIVE').length}
+                  {(employeesData?.employees || []).filter(emp => emp.status === 'ACTIVE').length}
                 </p>
               </div>
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-100 dark:bg-green-900">
@@ -659,7 +672,7 @@ export default function EmployeeList() {
               <div>
                 <p className="text-theme-sm text-gray-500 dark:text-gray-400">Départements</p>
                 <p className="text-2xl font-bold text-gray-800 dark:text-white">
-                  {new Set(employees.map(emp => emp.department)).size}
+                  {new Set((employeesData?.employees || []).map(emp => emp.department)).size}
                 </p>
               </div>
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-purple-100 dark:bg-purple-900">
@@ -674,7 +687,7 @@ export default function EmployeeList() {
                 <p className="text-theme-sm text-gray-500 dark:text-gray-400">Salaire Moyen</p>
                 <p className="text-2xl font-bold text-gray-800 dark:text-white">
                   {(() => {
-                    const employeesWithSalary = employees.filter(emp => emp.salary && emp.salary > 0);
+                    const employeesWithSalary = (employeesData?.employees || []).filter(emp => emp.salary && emp.salary > 0);
                     if (employeesWithSalary.length === 0) return '0 XOF';
                     const average = employeesWithSalary.reduce((sum, emp) => sum + (emp.salary || 0), 0) / employeesWithSalary.length;
                     return isNaN(average) ? '0 XOF' : Math.round(average).toLocaleString() + ' XOF';
@@ -784,6 +797,26 @@ export default function EmployeeList() {
                         </div>
                       </div>
 
+                      {/* QR Code et Matricule */}
+                      <div className="border-t border-gray-100 dark:border-gray-800 pt-4">
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs text-gray-500 dark:text-gray-400">Matricule</span>
+                            <span className="text-sm font-medium text-gray-900 dark:text-white font-mono">
+                              {employee.employeeId}
+                            </span>
+                          </div>
+                          {employee.qrCode && (
+                            <div className="flex justify-between items-center">
+                              <span className="text-xs text-gray-500 dark:text-gray-400">Code QR</span>
+                              <span className="text-xs font-mono text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded">
+                                {employee.qrCode.substring(0, 16)}...
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
                       {/* Contact */}
                       <div className="border-t border-gray-100 dark:border-gray-800 pt-4">
                         <div className="space-y-1">
@@ -863,6 +896,25 @@ export default function EmployeeList() {
             </div>
           )}
         </div>
+
+        {/* Pagination */}
+        {employeesData && employeesData.pagination.totalPages > 1 && (
+          <div className="mt-6">
+            <Pagination
+              currentPage={employeesData.pagination.currentPage}
+              totalPages={employeesData.pagination.totalPages}
+              totalItems={employeesData.pagination.totalItems}
+              itemsPerPage={employeesData.pagination.itemsPerPage}
+              onPageChange={(page) => {
+                setCurrentPage(page);
+              }}
+              onPageSizeChange={(pageSize) => {
+                setPageSize(pageSize);
+                setCurrentPage(1);
+              }}
+            />
+          </div>
+        )}
       </div>
 
       {/* Employee Details Modal */}

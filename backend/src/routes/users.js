@@ -7,12 +7,21 @@ const router = Router();
 
 /**
  * @route GET /api/users
- * @desc Récupérer tous les utilisateurs
+ * @desc Récupérer tous les utilisateurs avec pagination
  * @access Private
  */
 router.get('/', auth, async (req, res) => {
   try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const offset = (page - 1) * limit;
+
+    // Get total count for pagination metadata
+    const totalUsers = await prisma.user.count();
+
     const users = await prisma.user.findMany({
+      skip: offset,
+      take: limit,
       select: {
         id: true,
         email: true,
@@ -23,9 +32,25 @@ router.get('/', auth, async (req, res) => {
         lastLogin: true,
         createdAt: true,
         employee: true
+      },
+      orderBy: {
+        createdAt: 'desc'
       }
     });
-    res.json(users);
+
+    const totalPages = Math.ceil(totalUsers / limit);
+
+    res.json({
+      users,
+      pagination: {
+        currentPage: page,
+        totalPages,
+        totalItems: totalUsers,
+        itemsPerPage: limit,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1
+      }
+    });
   } catch (error) {
     res.status(500).json({ message: 'Erreur lors de la récupération des utilisateurs' });
   }

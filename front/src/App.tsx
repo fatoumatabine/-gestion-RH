@@ -31,6 +31,7 @@ import EmployeeEdit from "./pages/Employees/EmployeeEdit";
 // Attendance Pages
 import QRScanner from "./pages/Attendance/QRScanner";
 import AttendanceDetail from "./pages/Attendance/AttendanceDetail";
+import AttendanceCheckIn from "./pages/Attendance/AttendanceCheckIn";
 
 // Company Data Pages
 import CompanyFactures from "./pages/Company/CompanyFactures";
@@ -83,6 +84,10 @@ const router = createBrowserRouter(
     {
       path: "/auth/sign-up",
       element: <SignUp />
+    },
+    {
+      path: "/attendance/check-in",
+      element: <AttendanceCheckIn />
     },
     {
       path: "/404",

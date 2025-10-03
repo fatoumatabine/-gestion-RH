@@ -58,10 +58,32 @@ const CompanyDetail: React.FC = () => {
     if (!id || isNaN(parseInt(id))) return;
     try {
       setEmployeesLoading(true);
-      const data = await employeesService.getEmployeesByCompany(parseInt(id));
-      setEmployees(data);
+      const data: unknown = await employeesService.getEmployeesByCompany(parseInt(id));
+      console.log('Employees API response:', data); // Debug log
+
+      // Handle different response formats
+      let employeesArray: Employee[] = [];
+      if (Array.isArray(data)) {
+        employeesArray = data;
+      } else if (data && Array.isArray((data as any).employees)) { // eslint-disable-line @typescript-eslint/no-explicit-any
+        employeesArray = (data as any).employees; // eslint-disable-line @typescript-eslint/no-explicit-any
+      } else if (data && Array.isArray((data as any).data)) { // eslint-disable-line @typescript-eslint/no-explicit-any
+        employeesArray = (data as any).data; // eslint-disable-line @typescript-eslint/no-explicit-any
+      } else {
+        console.warn('Unexpected employees API response format:', data);
+        employeesArray = [];
+      }
+
+      // Ensure we always have an array
+      if (!Array.isArray(employeesArray)) {
+        console.error('Employees data is not an array:', employeesArray);
+        employeesArray = [];
+      }
+
+      setEmployees(employeesArray);
     } catch (err) {
       console.error('Error loading employees:', err);
+      setEmployees([]); // Set empty array on error
       setError('Erreur lors du chargement des employés');
     } finally {
       setEmployeesLoading(false);
@@ -373,7 +395,7 @@ const CompanyDetail: React.FC = () => {
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
               <span className="ml-3 text-gray-600 dark:text-gray-400">Chargement des employés...</span>
             </div>
-          ) : employees.length === 0 ? (
+          ) : (employees || []).length === 0 ? (
             <p className="text-gray-600 dark:text-gray-400">Aucun employé trouvé pour cette entreprise.</p>
           ) : (
             <table className="w-full text-left border-collapse">
@@ -388,7 +410,7 @@ const CompanyDetail: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {employees.map((emp) => (
+                {(employees || []).map((emp) => (
                   <tr key={emp.id} className="hover:bg-gray-100 dark:hover:bg-gray-700">
                     <td className="border-b border-gray-200 dark:border-gray-700 px-4 py-2">
                       {emp.user ? `${emp.user.firstName} ${emp.user.lastName}` : 'N/A'}

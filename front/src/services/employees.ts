@@ -14,6 +14,7 @@ export interface Employee {
   hireDate?: string;
   phone?: string;
   address?: string;
+  qrCode?: string;
   status: string;
   createdAt: string;
   updatedAt: string;
@@ -38,6 +39,20 @@ export interface CreateEmployeeData {
 
 export interface UpdateEmployeeData extends Partial<CreateEmployeeData> {
   status?: string;
+}
+
+export interface PaginationMeta {
+  currentPage: number;
+  totalPages: number;
+  totalItems: number;
+  itemsPerPage: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
+}
+
+export interface PaginatedEmployeesResponse {
+  employees: Employee[];
+  pagination: PaginationMeta;
 }
 
 class EmployeesService {
@@ -85,12 +100,20 @@ class EmployeesService {
     }
   }
 
-  async getAllEmployees(): Promise<Employee[]> {
-    return this.request('/api/employees');
+  async getAllEmployees(page = 1, limit = 10): Promise<PaginatedEmployeesResponse> {
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: limit.toString()
+    });
+    return this.request<PaginatedEmployeesResponse>(`/api/employees?${params}`);
   }
 
-  async getEmployeesByCompany(companyId: number): Promise<Employee[]> {
-    return this.request(`/api/employees/company/${companyId}`);
+  async getEmployeesByCompany(companyId: number, page = 1, limit = 10): Promise<PaginatedEmployeesResponse> {
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: limit.toString()
+    });
+    return this.request<PaginatedEmployeesResponse>(`/api/employees/company/${companyId}?${params}`);
   }
 
   async getEmployeeById(id: number): Promise<Employee> {

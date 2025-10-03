@@ -232,6 +232,24 @@ export default function SignInForm() {
           </Link>
         </p>
       </div>
+
+      {/* Attendance Check-in Button */}
+      <div className="mt-6 text-center">
+        <button
+          onClick={() => navigate('/attendance/check-in')}
+          className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-semibold py-3 px-4 rounded-xl transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] focus:ring-2 focus:ring-green-500 focus:ring-offset-2 shadow-lg hover:shadow-xl"
+        >
+          <div className="flex items-center justify-center space-x-2">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+            <span>Pointage rapide</span>
+          </div>
+        </button>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+          Accès direct au pointage sans connexion
+        </p>
+      </div>
     </div>
   );
 }

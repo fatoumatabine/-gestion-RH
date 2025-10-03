@@ -44,16 +44,37 @@ const upload = multer({
 // Middleware d'authentification pour toutes les routes
 router.use(auth);
 
-// GET /api/companies - Récupérer toutes les entreprises
+// GET /api/companies - Récupérer toutes les entreprises avec pagination
 router.get('/', async (req, res) => {
   try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const offset = (page - 1) * limit;
+
+    // Get total count for pagination metadata
+    const totalCompanies = await prisma.entreprise.count();
+
     const companies = await prisma.entreprise.findMany({
+      skip: offset,
+      take: limit,
       orderBy: {
         creeLe: 'desc'
       }
     });
 
-    res.json(companies);
+    const totalPages = Math.ceil(totalCompanies / limit);
+
+    res.json({
+      companies,
+      pagination: {
+        currentPage: page,
+        totalPages,
+        totalItems: totalCompanies,
+        itemsPerPage: limit,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1
+      }
+    });
   } catch (error) {
     console.error('Erreur lors de la récupération des entreprises:', error);
     res.status(500).json({ message: 'Erreur lors de la récupération des entreprises' });

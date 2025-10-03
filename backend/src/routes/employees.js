@@ -5,10 +5,19 @@ import { createEmployeeSchema, updateEmployeeSchema } from './employee.schema.js
 
 const router = Router();
 
-// Get all employees
+// Get all employees with pagination
 router.get('/', auth, async (req, res) => {
   try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const offset = (page - 1) * limit;
+
+    // Get total count for pagination metadata
+    const totalEmployees = await prisma.employee.count();
+
     const employees = await prisma.employee.findMany({
+      skip: offset,
+      take: limit,
       include: {
         user: {
           select: {
@@ -18,21 +27,48 @@ router.get('/', auth, async (req, res) => {
             phone: true
           }
         }
+      },
+      orderBy: {
+        createdAt: 'desc'
       }
     });
-    res.json(employees);
+
+    const totalPages = Math.ceil(totalEmployees / limit);
+
+    res.json({
+      employees,
+      pagination: {
+        currentPage: page,
+        totalPages,
+        totalItems: totalEmployees,
+        itemsPerPage: limit,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1
+      }
+    });
   } catch (error) {
     console.error('Error fetching employees:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-// Get employees by company ID
+// Get employees by company ID with pagination
 router.get('/company/:companyId', auth, async (req, res) => {
   try {
     const { companyId } = req.params;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const offset = (page - 1) * limit;
+
+    // Get total count for pagination metadata
+    const totalEmployees = await prisma.employee.count({
+      where: { entrepriseId: parseInt(companyId) }
+    });
+
     const employees = await prisma.employee.findMany({
       where: { entrepriseId: parseInt(companyId) },
+      skip: offset,
+      take: limit,
       include: {
         user: {
           select: {
@@ -42,9 +78,25 @@ router.get('/company/:companyId', auth, async (req, res) => {
             phone: true
           }
         }
+      },
+      orderBy: {
+        createdAt: 'desc'
       }
     });
-    res.json(employees);
+
+    const totalPages = Math.ceil(totalEmployees / limit);
+
+    res.json({
+      employees,
+      pagination: {
+        currentPage: page,
+        totalPages,
+        totalItems: totalEmployees,
+        itemsPerPage: limit,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1
+      }
+    });
   } catch (error) {
     console.error('Error fetching employees by company:', error);
     res.status(500).json({ error: 'Server error' });
@@ -188,6 +240,47 @@ router.post('/', auth, async (req, res) => {
     } catch (notificationError) {
       console.error('Erreur lors de la création de la notification:', notificationError);
       // Ne pas échouer la création de l'employé si la notification échoue
+    }
+
+    // Envoyer les emails avec le QR code
+    try {
+      const { sendEmployeeQRCodeEmail, sendAdminNotificationEmail } = await import('../utils/email.js');
+
+      // Préparer les données pour l'email
+      const employeeEmailData = {
+        firstName: user.firstName,
+        lastName: user.lastName,
+        employeeId: matricule,
+        department: validatedData.department,
+        position: validatedData.position,
+        qrCode: qrCode,
+        email: user.email
+      };
+
+      // Envoyer l'email avec le QR code à l'employé
+      await sendEmployeeQRCodeEmail(user.email, employeeEmailData);
+
+      // Envoyer les notifications par email aux administrateurs
+      const admins = await prisma.user.findMany({
+        where: {
+          role: {
+            in: ['ADMIN', 'SUPERADMIN']
+          }
+        },
+        select: {
+          email: true
+        }
+      });
+
+      for (const admin of admins) {
+        if (admin.email) {
+          await sendAdminNotificationEmail(admin.email, employeeEmailData, entreprise.nom);
+        }
+      }
+
+    } catch (emailError) {
+      console.error('Erreur lors de l\'envoi des emails:', emailError);
+      // Ne pas échouer la création de l'employé si l'envoi d'email échoue
     }
 
     res.status(201).json({

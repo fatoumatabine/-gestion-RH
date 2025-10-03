@@ -57,8 +57,29 @@ const CompanyDashboard: React.FC = () => {
     if (!id || isNaN(parseInt(id))) return;
     try {
       setEmployeesLoading(true);
-      const data = await employeesService.getEmployeesByCompany(parseInt(id));
-      setEmployees(data);
+      const data: unknown = await employeesService.getEmployeesByCompany(parseInt(id));
+      console.log('Employees API response:', data); // Debug log
+
+      // Handle different response formats
+      let employeesArray: Employee[] = [];
+      if (Array.isArray(data)) {
+        employeesArray = data;
+      } else if (data && Array.isArray((data as any).employees)) { // eslint-disable-line @typescript-eslint/no-explicit-any
+        employeesArray = (data as any).employees; // eslint-disable-line @typescript-eslint/no-explicit-any
+      } else if (data && Array.isArray((data as any).data)) { // eslint-disable-line @typescript-eslint/no-explicit-any
+        employeesArray = (data as any).data; // eslint-disable-line @typescript-eslint/no-explicit-any
+      } else {
+        console.warn('Unexpected employees API response format:', data);
+        employeesArray = [];
+      }
+
+      // Ensure we always have an array
+      if (!Array.isArray(employeesArray)) {
+        console.error('Employees data is not an array:', employeesArray);
+        employeesArray = [];
+      }
+
+      setEmployees(employeesArray);
     } catch (err) {
       console.error('Error loading employees:', err);
       // Don't set error for employees, just log it
@@ -277,7 +298,7 @@ const CompanyDashboard: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-white text-opacity-80 text-sm font-medium mb-1">Employés</p>
-                    <p className="text-3xl font-bold text-white">{employees.length}</p>
+                    <p className="text-3xl font-bold text-white">{(employees || []).length}</p>
                     <p className="text-white text-opacity-70 text-xs mt-1">Total actifs</p>
                   </div>
                   <div className="p-4 rounded-xl bg-white bg-opacity-20 group-hover:bg-opacity-30 transition-all duration-300">
@@ -336,8 +357,8 @@ const CompanyDashboard: React.FC = () => {
                   <div>
                     <p className="text-white text-opacity-80 text-sm font-medium mb-1">Salaire Moyen</p>
                     <p className="text-3xl font-bold text-white">
-                      {employees.length > 0
-                        ? Math.round(employees.reduce((sum, emp) => sum + (emp.salary || 0), 0) / employees.length).toLocaleString()
+                      {(employees || []).length > 0
+                        ? Math.round((employees || []).reduce((sum, emp) => sum + (emp.salary || 0), 0) / (employees || []).length).toLocaleString()
                         : 'N/A'}
                     </p>
                     <p className="text-white text-opacity-70 text-xs mt-1">{company.devise}</p>
@@ -367,7 +388,7 @@ const CompanyDashboard: React.FC = () => {
                         Employés
                       </h2>
                       <p className="text-gray-600 dark:text-gray-400 text-sm">
-                        {employees.length} employé{employees.length !== 1 ? 's' : ''}
+                        {(employees || []).length} employé{(employees || []).length !== 1 ? 's' : ''}
                       </p>
                     </div>
                   </div>
@@ -404,7 +425,7 @@ const CompanyDashboard: React.FC = () => {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {employees.slice(0, 5).map((emp) => (
+                    {(employees || []).slice(0, 5).map((emp) => (
                       <div key={emp.id} className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-slate-700 dark:to-slate-600 rounded-2xl hover:shadow-md transition-all duration-200 hover:scale-[1.02]">
                         <div className="flex items-center">
                           <div className="flex-shrink-0 h-12 w-12">
@@ -569,7 +590,7 @@ const CompanyDashboard: React.FC = () => {
                     </div>
                   </div>
                 ))}
-                {employees.slice(0, 2).map((emp) => (
+                {(employees || []).slice(0, 2).map((emp) => (
                   <div key={`emp-${emp.id}`} className="flex items-center p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-700 dark:to-slate-600 rounded-2xl hover:shadow-md transition-all duration-200 hover:scale-[1.01]">
                     <div className="flex-shrink-0">
                       <div className="h-12 w-12 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center shadow-lg">

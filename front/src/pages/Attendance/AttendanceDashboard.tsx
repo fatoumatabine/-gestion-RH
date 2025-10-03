@@ -75,21 +75,43 @@ const AttendanceDashboard = () => {
 
       let employeesData: Employee[] = [];
       if (employeesResponse.ok) {
-        employeesData = await employeesResponse.json();
-        console.log('🔍 Employés chargés:', employeesData.map(emp => ({
+        const responseData = await employeesResponse.json();
+        console.log('🔍 Réponse API employés:', responseData);
+
+        // Handle different response formats
+        if (Array.isArray(responseData)) {
+          employeesData = responseData as Employee[];
+        } else if (responseData && Array.isArray(responseData.data)) {
+          employeesData = responseData.data as Employee[];
+        } else if (responseData && Array.isArray(responseData.employees)) {
+          employeesData = responseData.employees as Employee[];
+        } else {
+          console.warn('⚠️ Format de réponse API inattendu:', responseData);
+          employeesData = [];
+        }
+
+        console.log('🔍 Employés chargés:', (employeesData || []).map(emp => ({
           id: emp.id,
           employeeId: emp.employeeId,
-          name: `${emp.user.firstName} ${emp.user.lastName}`,
+          name: `${emp.user?.firstName || 'N/A'} ${emp.user?.lastName || 'N/A'}`,
           qrCodeLength: emp.qrCode ? emp.qrCode.length : 0,
           qrCodePreview: emp.qrCode ? emp.qrCode.substring(0, 50) + '...' : 'null'
         })));
+
+        // Ensure we always have an array
+        if (!Array.isArray(employeesData)) {
+          console.error('Employees data is not an array:', employeesData);
+          employeesData = [];
+        }
+
         setEmployees(employeesData);
       } else {
         console.error('❌ Erreur chargement employés:', employeesResponse.status, employeesResponse.statusText);
+        employeesData = [];
       }
 
       // Simulation des données de pointage pour le mois en cours
-      const mockData: AttendanceRecord[] = employeesData.map((employee, index) => ({
+      const mockData: AttendanceRecord[] = (employeesData || []).map((employee, index) => ({
         id: index + 1,
         employeeId: employee.employeeId,
         employeeName: `${employee.user.firstName} ${employee.user.lastName}`,
